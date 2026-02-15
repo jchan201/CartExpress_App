@@ -16,7 +16,7 @@ export function Header() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isMiniCartOpen, setIsMiniCartOpen] = useState(false);
 
-  const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+  const itemCount = items?.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +27,7 @@ export function Header() {
   };
 
   return (
-    <header className="bg-white border-b border-gray-200">
+    <header className="bg-white border-b border-gray-200 relative z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 gap-4">
           <div className="flex items-center gap-4 lg:gap-8">
@@ -69,7 +69,7 @@ export function Header() {
           <div className="flex items-center gap-4">
             <Link to="/wishlist" className="relative">
               <Heart className="w-6 h-6 text-gray-600 hover:text-gray-900 transition-colors" />
-              {wishlist.length > 0 && (
+              {wishlist?.length > 0 && (
                 <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                   {wishlist.length}
                 </span>
@@ -78,7 +78,7 @@ export function Header() {
 
             <Link to="/compare" className="relative">
               <Scale className="w-6 h-6 text-gray-600 hover:text-gray-900 transition-colors" />
-              {comparisonList.length > 0 && (
+              {comparisonList?.length > 0 && (
                 <span className="absolute -top-2 -right-2 bg-purple-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                   {comparisonList.length}
                 </span>
