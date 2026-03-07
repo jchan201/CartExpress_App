@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Product } from "@/app/data/products";
+import { Product } from "@/app/services/products";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
 import { Star, ShoppingCart, Heart, X } from "lucide-react";
 import { useCart } from "@/app/context/CartContext";
@@ -22,17 +21,17 @@ export function QuickViewModal({ product, open, onClose }: QuickViewModalProps) 
 
   const handleAddToCart = () => {
     addToCart({
-      id: product.id,
+      sku: product.sku,
       name: product.name,
       price: product.price,
-      image: product.image,
+      image: product.images[0],
     });
     toast.success("Added to cart!");
   };
 
   const handleToggleWishlist = () => {
-    if (isInWishlist(product.id)) {
-      removeFromWishlist(product.id);
+    if (isInWishlist(product.sku)) {
+      removeFromWishlist(product.sku);
       toast.success("Removed from wishlist");
     } else {
       addToWishlist(product);
@@ -51,20 +50,19 @@ export function QuickViewModal({ product, open, onClose }: QuickViewModalProps) 
           {/* Product Image */}
           <div className="relative">
             <img
-              src={product.image}
+              src={product.images[0]}
               alt={product.name}
               className="w-full rounded-lg"
             />
-            {product.badge && (
+            {product.isFeatured && (
               <div className="absolute top-4 left-4">
-                <ProductBadge type={product.badge} />
+                <ProductBadge type="bestseller" />
               </div>
             )}
           </div>
 
           {/* Product Info */}
           <div className="flex flex-col">
-            <span className="text-sm text-gray-500 mb-2">{product.category}</span>
             <h2 className="text-2xl font-semibold mb-3">{product.name}</h2>
 
             {/* Rating */}
@@ -74,7 +72,7 @@ export function QuickViewModal({ product, open, onClose }: QuickViewModalProps) 
                   <Star
                     key={i}
                     className={`w-4 h-4 ${
-                      i < Math.floor(product.rating)
+                      i < Math.floor(product.averageRating)
                         ? "fill-yellow-400 text-yellow-400"
                         : "text-gray-300"
                     }`}
@@ -82,7 +80,7 @@ export function QuickViewModal({ product, open, onClose }: QuickViewModalProps) 
                 ))}
               </div>
               <span className="text-sm text-gray-600">
-                {product.rating} ({product.reviews} reviews)
+                {product.averageRating} ({product.totalReviews} reviews)
               </span>
             </div>
 
@@ -91,15 +89,15 @@ export function QuickViewModal({ product, open, onClose }: QuickViewModalProps) 
               <span className="text-3xl text-blue-600 font-semibold">
                 ${product.price.toFixed(2)}
               </span>
-              {product.originalPrice && (
+              {product.comparePrice && (
                 <span className="ml-3 text-lg text-gray-500 line-through">
-                  ${product.originalPrice.toFixed(2)}
+                  ${product.comparePrice.toFixed(2)}
                 </span>
               )}
             </div>
 
             {/* Description */}
-            <p className="text-gray-700 mb-6">{product.description}</p>
+            <p className="text-gray-700 mb-6">{product.description || product.shortDescription}</p>
 
             {/* Stock */}
             <div className="mb-6">
@@ -107,11 +105,11 @@ export function QuickViewModal({ product, open, onClose }: QuickViewModalProps) 
                 Availability:{" "}
                 <span
                   className={
-                    product.stock > 0 ? "text-green-600" : "text-red-600"
+                    product.stockQuantity > 0 ? "text-green-600" : "text-red-600"
                   }
                 >
-                  {product.stock > 0
-                    ? `${product.stock} in stock`
+                  {product.stockQuantity > 0
+                    ? `${product.stockQuantity} in stock`
                     : "Out of stock"}
                 </span>
               </span>
@@ -121,7 +119,7 @@ export function QuickViewModal({ product, open, onClose }: QuickViewModalProps) 
             <div className="flex gap-3 mt-auto">
               <button
                 onClick={handleAddToCart}
-                disabled={product.stock === 0}
+                disabled={product.stockQuantity === 0}
                 className="flex-1 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 <ShoppingCart className="w-5 h-5" />
@@ -133,7 +131,7 @@ export function QuickViewModal({ product, open, onClose }: QuickViewModalProps) 
               >
                 <Heart
                   className={`w-5 h-5 ${
-                    isInWishlist(product.id)
+                    isInWishlist(product.sku)
                       ? "fill-red-500 text-red-500"
                       : "text-gray-600"
                   }`}
@@ -143,7 +141,7 @@ export function QuickViewModal({ product, open, onClose }: QuickViewModalProps) 
 
             {/* View Full Details Link */}
             <Link
-              to={`/products/${product.id}`}
+              to={`/products/${product._id}`}
               onClick={onClose}
               className="mt-4 text-center text-blue-600 hover:text-blue-700 text-sm"
             >

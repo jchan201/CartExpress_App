@@ -14,12 +14,6 @@ export function MiniCart({ isOpen, onClose }: MiniCartProps) {
 
   return (
     <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black bg-opacity-30 z-40"
-        onClick={onClose}
-      />
-
       {/* Mini Cart Panel */}
       <div className="fixed top-16 right-4 w-96 bg-white rounded-lg shadow-2xl z-50 max-h-[calc(100vh-5rem)] flex flex-col">
         {/* Header */}
@@ -44,7 +38,7 @@ export function MiniCart({ isOpen, onClose }: MiniCartProps) {
           ) : (
             <div className="space-y-4">
               {items.map((item) => (
-                <div key={item.id} className="flex gap-3 pb-4 border-b">
+                <div key={item.sku} className="flex gap-3 pb-4 border-b">
                   <img
                     src={item.image}
                     alt={item.name}
@@ -62,7 +56,7 @@ export function MiniCart({ isOpen, onClose }: MiniCartProps) {
                     </p>
                   </div>
                   <button
-                    onClick={() => removeFromCart(item.id)}
+                    onClick={() => removeFromCart(item.sku)}
                     className="text-gray-400 hover:text-red-500 h-fit"
                     aria-label="Remove item"
                   >

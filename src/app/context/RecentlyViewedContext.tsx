@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { Product } from "@/app/data/products";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from "react";
+import { Product } from "@/app/services/products";
 
 interface RecentlyViewedContextType {
   recentlyViewed: Product[];
@@ -28,17 +28,19 @@ export function RecentlyViewedProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("recentlyViewed", JSON.stringify(recentlyViewed));
   }, [recentlyViewed]);
 
-  const addToRecentlyViewed = (product: Product) => {
+  const addToRecentlyViewed = useCallback((product: Product) => {
     setRecentlyViewed((prev) => {
       // Remove the product if it already exists
-      const filtered = prev.filter((p) => p.id !== product.id);
+      const filtered = prev.filter((p) => p.sku !== product.sku);
       // Add to the beginning and keep only the last 6 items
       return [product, ...filtered].slice(0, 6);
     });
-  };
+  }, []);
+
+  const value = useMemo(() => ({ recentlyViewed, addToRecentlyViewed }), [recentlyViewed, addToRecentlyViewed]);
 
   return (
-    <RecentlyViewedContext.Provider value={{ recentlyViewed, addToRecentlyViewed }}>
+    <RecentlyViewedContext.Provider value={value}>
       {children}
     </RecentlyViewedContext.Provider>
   );

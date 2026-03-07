@@ -1,7 +1,8 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import { getOrCreateSessionId } from "@/app/utilities/sessionId";
 
 export interface CartItem {
-  id: string;
+  sku: string;
   name: string;
   price: number;
   quantity: number;
@@ -10,6 +11,7 @@ export interface CartItem {
 
 interface CartContextType {
   items: CartItem[];
+  sessionId: string;
   addToCart: (item: Omit<CartItem, "quantity">) => void;
   removeFromCart: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
@@ -21,13 +23,31 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [sessionId, setSessionId] = useState<string>("");
+
+  // Initialize session ID on mount
+  useEffect(() => {
+    const id = getOrCreateSessionId();
+    setSessionId(id);
+
+    // Optionally sync cart from backend here
+    // const syncCartFromBackend = async () => {
+    //   try {
+    //     const cart = await cartService.getCart(null, id);
+    //     // Map backend cart items to local format if needed
+    //   } catch (err) {
+    //     console.error("Failed to sync cart:", err);
+    //   }
+    // };
+    // syncCartFromBackend();
+  }, []);
 
   const addToCart = (item: Omit<CartItem, "quantity">) => {
     setItems((prev) => {
-      const existing = prev.find((i) => i.id === item.id);
+      const existing = prev.find((i) => i.sku === item.sku);
       if (existing) {
         return prev.map((i) =>
-          i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
+          i.sku === item.sku ? { ...i, quantity: i.quantity + 1 } : i
         );
       }
       return [...prev, { ...item, quantity: 1 }];
@@ -35,7 +55,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const removeFromCart = (id: string) => {
-    setItems((prev) => prev.filter((item) => item.id !== id));
+    setItems((prev) => prev.filter((item) => item.sku !== id));
   };
 
   const updateQuantity = (id: string, quantity: number) => {
@@ -44,7 +64,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return;
     }
     setItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, quantity } : item))
+      prev.map((item) => (item.sku === id ? { ...item, quantity } : item))
     );
   };
 
@@ -59,7 +79,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   return (
     <CartContext.Provider
-      value={{ items, addToCart, removeFromCart, updateQuantity, clearCart, total }}
+      value={{ items, sessionId, addToCart, removeFromCart, updateQuantity, clearCart, total }}
     >
       {children}
     </CartContext.Provider>

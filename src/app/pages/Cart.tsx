@@ -34,7 +34,7 @@ export function Cart() {
         <div className="lg:col-span-2 space-y-4">
           {items.map((item) => (
             <div
-              key={item.id}
+              key={item.sku}
               className="bg-white rounded-lg shadow-sm p-4 flex gap-4"
             >
               <img
@@ -52,14 +52,14 @@ export function Cart() {
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2 border border-gray-300 rounded">
                     <button
-                      onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                      onClick={() => updateQuantity(item.sku, item.quantity - 1)}
                       className="p-2 hover:bg-gray-100"
                     >
                       <Minus className="w-4 h-4" />
                     </button>
                     <span className="px-3">{item.quantity}</span>
                     <button
-                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                      onClick={() => updateQuantity(item.sku, item.quantity + 1)}
                       className="p-2 hover:bg-gray-100"
                     >
                       <Plus className="w-4 h-4" />
@@ -67,7 +67,7 @@ export function Cart() {
                   </div>
 
                   <button
-                    onClick={() => removeFromCart(item.id)}
+                    onClick={() => removeFromCart(item.sku)}
                     className="p-2 text-red-600 hover:bg-red-50 rounded"
                   >
                     <Trash2 className="w-5 h-5" />

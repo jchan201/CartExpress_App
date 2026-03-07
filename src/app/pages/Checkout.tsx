@@ -36,7 +36,7 @@ export function Checkout() {
     const shippingAddress = `${formData.address}, ${formData.city}, ${formData.zipCode}`;
     addOrder({
       items: items.map(item => ({
-        id: item.id,
+        id: item.sku,
         name: item.name,
         price: item.price,
         quantity: item.quantity,
@@ -197,7 +197,7 @@ export function Checkout() {
 
               <div className="space-y-3 mb-4">
                 {items.map((item) => (
-                  <div key={item.id} className="flex justify-between text-sm">
+                  <div key={item.sku} className="flex justify-between text-sm">
                     <span className="text-gray-600">
                       {item.name} x {item.quantity}
                     </span>

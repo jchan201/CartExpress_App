@@ -2,14 +2,13 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "@/app/context/AuthContext";
 import { Package, ShoppingBag, Edit, Trash2, Plus } from "lucide-react";
-import { products as initialProducts } from "@/app/data/products";
-import type { Product } from "@/app/data/products";
+import { Product } from "../services/products";
 
 export function AdminDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"products" | "orders">("products");
-  const [products, setProducts] = useState(initialProducts);
+  const [products, setProducts] = useState<Product[]>([]);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   // Redirect if not admin
@@ -49,7 +48,7 @@ export function AdminDashboard() {
 
   const handleDeleteProduct = (id: string) => {
     if (confirm("Are you sure you want to delete this product?")) {
-      setProducts(products.filter((p) => p.id !== id));
+      setProducts(products.filter((p) => p._id !== id));
     }
   };
 
@@ -59,7 +58,7 @@ export function AdminDashboard() {
 
   const handleSaveProduct = (updatedProduct: Product) => {
     setProducts(
-      products.map((p) => (p.id === updatedProduct.id ? updatedProduct : p))
+      products.map((p) => (p._id === updatedProduct._id ? updatedProduct : p))
     );
     setEditingProduct(null);
   };
@@ -150,20 +149,20 @@ export function AdminDashboard() {
               </thead>
               <tbody className="divide-y">
                 {products.map((product) => (
-                  <tr key={product.id}>
+                  <tr key={product._id}>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <img
-                          src={product.image}
+                          src={product.images[0]}
                           alt={product.name}
                           className="w-12 h-12 object-cover rounded"
                         />
                         <span>{product.name}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4">{product.category}</td>
+                    <td className="px-6 py-4">{product.categoryId}</td>
                     <td className="px-6 py-4">${product.price.toFixed(2)}</td>
-                    <td className="px-6 py-4">{product.stock}</td>
+                    <td className="px-6 py-4">{product.stockQuantity}</td>
                     <td className="px-6 py-4">
                       <div className="flex gap-2">
                         <button
@@ -173,7 +172,7 @@ export function AdminDashboard() {
                           <Edit className="w-5 h-5" />
                         </button>
                         <button
-                          onClick={() => handleDeleteProduct(product.id)}
+                          onClick={() => handleDeleteProduct(product._id!)}
                           className="p-2 text-red-600 hover:bg-red-50 rounded"
                         >
                           <Trash2 className="w-5 h-5" />
@@ -288,11 +287,11 @@ export function AdminDashboard() {
                 <label className="block text-sm mb-2">Stock</label>
                 <input
                   type="number"
-                  value={editingProduct.stock}
+                  value={editingProduct.stockQuantity}
                   onChange={(e) =>
                     setEditingProduct({
                       ...editingProduct,
-                      stock: parseInt(e.target.value),
+                      stockQuantity: parseInt(e.target.value),
                     })
                   }
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg"

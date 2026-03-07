@@ -6,10 +6,15 @@ import { toast } from "sonner";
 
 export function Wishlist() {
   const { wishlist, removeFromWishlist } = useWishlist();
-  const { addItem } = useCart();
+  const { addToCart } = useCart();
 
   const handleAddToCart = (product: any) => {
-    addItem(product);
+    addToCart({
+      sku: product.sku,
+      name: product.name,
+      price: product.price,
+      image: product.images[0],
+    });
     toast.success(`${product.name} added to cart`);
   };
 
@@ -49,18 +54,18 @@ export function Wishlist() {
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {wishlist.map((product) => (
           <div
-            key={product.id}
+            key={product.sku}
             className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden"
           >
-            <Link to={`/products/${product.id}`} className="block">
+            <Link to={`/products/${product._id}`} className="block">
               <img
-                src={product.image}
+                src={product.images[0]}
                 alt={product.name}
                 className="w-full h-48 object-cover"
               />
             </Link>
             <div className="p-4">
-              <Link to={`/products/${product.id}`}>
+              <Link to={`/products/${product._id}`}>
                 <h3 className="text-lg mb-2 hover:text-blue-600 transition-colors line-clamp-2">
                   {product.name}
                 </h3>
@@ -70,20 +75,20 @@ export function Wishlist() {
                   ${product.price.toFixed(2)}
                 </span>
                 <span className="text-sm text-gray-500">
-                  Stock: {product.stock}
+                  Stock: {product.stockQuantity}
                 </span>
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => handleAddToCart(product)}
-                  disabled={product.stock === 0}
+                  disabled={product.stockQuantity === 0}
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                 >
                   <ShoppingCart className="w-4 h-4" />
                   Add to Cart
                 </button>
                 <button
-                  onClick={() => handleRemove(product.id, product.name)}
+                  onClick={() => handleRemove(product.sku, product.name)}
                   className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                   title="Remove from wishlist"
                 >

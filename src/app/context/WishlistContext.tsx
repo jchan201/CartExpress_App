@@ -1,11 +1,11 @@
 import { createContext, useContext, useState, ReactNode } from "react";
-import { Product } from "@/app/data/products";
+import { Product } from "@/app/services/products";
 
 interface WishlistContextType {
   wishlist: Product[];
   addToWishlist: (product: Product) => void;
-  removeFromWishlist: (productId: string) => void;
-  isInWishlist: (productId: string) => boolean;
+  removeFromWishlist: (productSku: string) => void;
+  isInWishlist: (productSku: string) => boolean;
 }
 
 const WishlistContext = createContext<WishlistContextType | undefined>(undefined);
@@ -15,19 +15,19 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
 
   const addToWishlist = (product: Product) => {
     setWishlist((prev) => {
-      if (prev.some((p) => p.id === product.id)) {
+      if (prev.some((p) => p.sku === product.sku)) {
         return prev;
       }
       return [...prev, product];
     });
   };
 
-  const removeFromWishlist = (productId: string) => {
-    setWishlist((prev) => prev.filter((p) => p.id !== productId));
+  const removeFromWishlist = (productSku: string) => {
+    setWishlist((prev) => prev.filter((p) => p.sku !== productSku));
   };
 
-  const isInWishlist = (productId: string) => {
-    return wishlist.some((p) => p.id === productId);
+  const isInWishlist = (productSku: string) => {
+    return wishlist.some((p) => p.sku === productSku);
   };
 
   return (

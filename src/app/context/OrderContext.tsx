@@ -12,10 +12,12 @@ export interface Order {
   id: string;
   items: OrderItem[];
   total: number;
+  tax?: number;
   status: "processing" | "shipped" | "delivered" | "cancelled";
   orderDate: string;
   deliveryDate?: string;
   shippingAddress: string;
+  paymentMethod?: string;
 }
 
 interface OrderContextType {
@@ -28,24 +30,27 @@ const OrderContext = createContext<OrderContextType | undefined>(undefined);
 export function OrderProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
 
-  // Load from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem("orders");
-    if (stored) {
-      try {
-        setOrders(JSON.parse(stored));
-      } catch (e) {
-        console.error("Failed to parse orders:", e);
-      }
-    }
-  }, []);
+  // Note: localStorage persistence removed
+  // Orders are now managed via backend API.
+  // To fetch user orders from backend, uncomment the code below and provide userId
 
-  // Save to localStorage whenever orders change
-  useEffect(() => {
-    if (orders.length > 0) {
-      localStorage.setItem("orders", JSON.stringify(orders));
-    }
-  }, [orders]);
+  // useEffect(() => {
+  //   const fetchUserOrders = async () => {
+  //     const userId = useAuth()?.user?.id; // Get from auth context
+  //     if (userId) {
+  //       try {
+  //         const userOrders = await ordersService.getUserOrders(userId);
+  //         setOrders(userOrders.map(order => ({
+  //           ...order,
+  //           id: order._id || order.id,
+  //         })));
+  //       } catch (err) {
+  //         console.error("Failed to fetch orders:", err);
+  //       }
+  //     }
+  //   };
+  //   fetchUserOrders();
+  // }, []);
 
   const addOrder = (orderData: Omit<Order, "id" | "orderDate" | "status">) => {
     const newOrder: Order = {
@@ -55,6 +60,16 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       status: "processing",
     };
     setOrders((prev) => [newOrder, ...prev]);
+
+    // Optional: Sync with backend
+    // await ordersService.createOrder({
+    //   userId: getCurrentUserId(),
+    //   sessionId: getSessionId(),
+    //   items: orderData.items,
+    //   shippingAddress: orderData.shippingAddress,
+    //   paymentMethod: orderData.paymentMethod || "card",
+    //   tax: orderData.tax || 0,
+    // });
   };
 
   return (

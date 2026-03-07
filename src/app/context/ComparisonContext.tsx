@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, ReactNode } from "react";
-import { Product } from "@/app/data/products";
+import { Product } from "@/app/services/products";
 
 interface ComparisonContextType {
   comparisonList: Product[];
@@ -17,7 +17,7 @@ export function ComparisonProvider({ children }: { children: ReactNode }) {
   const addToComparison = (product: Product) => {
     setComparisonList((prev) => {
       // Check if already in comparison
-      if (prev.find((p) => p.id === product.id)) {
+      if (prev.find((p) => p.sku === product.sku)) {
         return prev;
       }
       // Limit to 4 products for comparison
@@ -29,7 +29,7 @@ export function ComparisonProvider({ children }: { children: ReactNode }) {
   };
 
   const removeFromComparison = (productId: string) => {
-    setComparisonList((prev) => prev.filter((p) => p.id !== productId));
+    setComparisonList((prev) => prev.filter((p) => p.sku !== productId));
   };
 
   const clearComparison = () => {
@@ -37,7 +37,7 @@ export function ComparisonProvider({ children }: { children: ReactNode }) {
   };
 
   const isInComparison = (productId: string) => {
-    return comparisonList.some((p) => p.id === productId);
+    return comparisonList.some((p) => p.sku === productId);
   };
 
   return (

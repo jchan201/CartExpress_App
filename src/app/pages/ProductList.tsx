@@ -1,12 +1,11 @@
 import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router";
-import { Star, X, SlidersHorizontal, Heart, Eye, Scale, ChevronLeft, ChevronRight } from "lucide-react";
-import { products, Product } from "@/app/data/products";
+import { Star, X, SlidersHorizontal, Heart, Eye, Scale, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
 import { useWishlist } from "@/app/context/WishlistContext";
 import { useComparison } from "@/app/context/ComparisonContext";
-import { ProductBadge } from "@/app/components/ProductBadge";
 import { QuickViewModal } from "@/app/components/QuickViewModal";
 import { toast } from "sonner";
+import { productsService, Product } from "@/app/services/products";
 
 type SortOption = "name-asc" | "name-desc" | "price-asc" | "price-desc" | "rating-asc" | "rating-desc";
 
@@ -14,6 +13,9 @@ const PRODUCTS_PER_PAGE = 12;
 
 export function ProductList() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 2000]);
@@ -26,11 +28,37 @@ export function ProductList() {
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const { addToComparison, removeFromComparison, isInComparison, comparisonList } = useComparison();
 
-  const categories = ["All", ...Array.from(new Set(products.map((p) => p.category)))];
+  // Fetch products from API
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const result = await productsService.getProducts({
+          limit: 100, // Adjust as needed
+          page: 1,
+        });
+
+        // Handle both array and object responses
+        const productList = Array.isArray(result) ? result : result.products;
+        setProducts(productList);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to load products";
+        setError(errorMessage);
+        toast.error(errorMessage);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
+  const categories = ["All", ...Array.from(new Set(products.map((p) => p.categoryId || "Other")))];
 
   // Calculate min and max prices from products
-  const minPrice = Math.min(...products.map((p) => p.price));
-  const maxPrice = Math.max(...products.map((p) => p.price));
+  const minPrice = products.length > 0 ? Math.min(...products.map((p) => p.price)) : 0;
+  const maxPrice = products.length > 0 ? Math.max(...products.map((p) => p.price)) : 2000;
 
   useEffect(() => {
     // Clear category filter when search is active
@@ -47,20 +75,20 @@ export function ProductList() {
   const filteredProducts = products.filter((product) => {
     // Apply category filter
     const categoryMatch =
-      selectedCategory === "All" || product.category === selectedCategory;
+      selectedCategory === "All" || product.categoryId === selectedCategory;
 
     // Apply search filter
     const searchMatch =
       !searchQuery ||
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.category.toLowerCase().includes(searchQuery.toLowerCase());
+      (product.description?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
+      (product.shortDescription?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
 
     // Apply price range filter
-    const priceMatch = product.price >= priceRange[0] && product.price <= priceRange[1];
+    const priceMatch = (product.price) >= priceRange[0] && (product.price) <= priceRange[1];
 
     // Apply rating filter
-    const ratingMatch = product.rating >= minRating;
+    const ratingMatch = (product.averageRating) >= minRating;
 
     return categoryMatch && searchMatch && priceMatch && ratingMatch;
   });
@@ -73,13 +101,13 @@ export function ProductList() {
       case "name-desc":
         return b.name.localeCompare(a.name);
       case "price-asc":
-        return a.price - b.price;
+        return (a.price) - (b.price);
       case "price-desc":
-        return b.price - a.price;
+        return (b.price) - (a.price);
       case "rating-asc":
-        return a.rating - b.rating;
+        return (a.averageRating) - (b.averageRating);
       case "rating-desc":
-        return b.rating - a.rating;
+        return (b.averageRating) - (a.averageRating);
       default:
         return 0;
     }
@@ -281,7 +309,28 @@ export function ProductList() {
 
         {/* Product Grid */}
         <div className="flex-1">
-          {sortedProducts.length === 0 ? (
+          {isLoading ? (
+            <div className="text-center py-12 bg-white rounded-lg shadow-sm">
+              <div className="inline-block">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              </div>
+              <p className="text-gray-600 text-lg mt-4">Loading products...</p>
+            </div>
+          ) : error ? (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <AlertCircle className="w-6 h-6 text-red-600" />
+                <h3 className="text-lg font-semibold text-red-600">Failed to Load Products</h3>
+              </div>
+              <p className="text-red-700 mb-4">{error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          ) : sortedProducts.length === 0 ? (
             <div className="text-center py-12 bg-white rounded-lg shadow-sm">
               <p className="text-gray-600 text-lg">No products found matching your criteria.</p>
               <button
@@ -293,115 +342,115 @@ export function ProductList() {
             </div>
           ) : (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {currentProducts.map((product) => (
-                <div
-                  key={product.id}
-                  className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden group relative"
-                >
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      if (isInWishlist(product.id)) {
-                        removeFromWishlist(product.id);
-                        toast.success("Removed from wishlist");
-                      } else {
-                        addToWishlist(product);
-                        toast.success("Added to wishlist");
-                      }
-                    }}
-                    className="absolute top-2 left-2 z-10 p-2 bg-white rounded-full shadow-md hover:bg-gray-100 transition-colors"
+              {currentProducts.map((product) => {
+                const primaryImage = product.thumbnail || product.images?.[0] || "/placeholder.png";
+                const displayPrice = product.comparePrice ? product.price : null;
+
+                return (
+                  <div
+                    key={product.sku}
+                    className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden group relative"
                   >
-                    <Heart
-                      className={`w-5 h-5 ${
-                        isInWishlist(product.id)
-                          ? "fill-red-500 text-red-500"
-                          : "text-gray-400"
-                      }`}
-                    />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setQuickViewProduct(product);
-                      setIsQuickViewOpen(true);
-                    }}
-                    className="absolute top-2 right-2 z-10 p-2 bg-white rounded-full shadow-md hover:bg-gray-100 transition-colors opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Eye className="w-5 h-5 text-gray-600" />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      if (isInComparison(product.id)) {
-                        removeFromComparison(product.id);
-                        toast.success("Removed from comparison");
-                      } else {
-                        if (comparisonList.length >= 4) {
-                          toast.error("You can compare up to 4 products");
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (isInWishlist(product.sku)) {
+                          removeFromWishlist(product.sku);
+                          toast.success("Removed from wishlist");
                         } else {
-                          addToComparison(product);
-                          toast.success("Added to comparison");
+                          addToWishlist(product);
+                          toast.success("Added to wishlist");
                         }
-                      }
-                    }}
-                    className="absolute top-12 right-2 z-10 p-2 bg-white rounded-full shadow-md hover:bg-gray-100 transition-colors opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Scale
-                      className={`w-5 h-5 ${
-                        isInComparison(product.id)
-                          ? "text-purple-600"
-                          : "text-gray-600"
-                      }`}
-                    />
-                  </button>
-                  <Link to={`/products/${product.id}`}>
-                    <div className="relative overflow-hidden">
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                      }}
+                      className="absolute top-2 left-2 z-10 p-2 bg-white rounded-full shadow-md hover:bg-gray-100 transition-colors"
+                    >
+                      <Heart
+                        className={`w-5 h-5 ${
+                          isInWishlist(product.sku)
+                            ? "fill-red-500 text-red-500"
+                            : "text-gray-400"
+                        }`}
                       />
-                      {product.stock < 10 && (
-                        <span className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
-                          Low Stock
-                        </span>
-                      )}
-                    </div>
-                    <div className="p-4">
-                      {product.badge && (
-                        <div className="mb-2">
-                          <ProductBadge type={product.badge} />
-                        </div>
-                      )}
-                      <h3 className="text-lg mb-2 line-clamp-1">{product.name}</h3>
-                      <div className="flex items-center gap-1 mb-2">
-                        <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                        <span className="text-sm text-gray-600">
-                          {product.rating} ({product.reviews})
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between mb-2">
-                        <div>
-                          <span className="text-xl text-blue-600 font-semibold">
-                            ${product.price.toFixed(2)}
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setQuickViewProduct(product);
+                        setIsQuickViewOpen(true);
+                      }}
+                      className="absolute top-2 right-2 z-10 p-2 bg-white rounded-full shadow-md hover:bg-gray-100 transition-colors opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Eye className="w-5 h-5 text-gray-600" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (isInComparison(product.sku)) {
+                          removeFromComparison(product.sku);
+                          toast.success("Removed from comparison");
+                        } else {
+                          if (comparisonList.length >= 4) {
+                            toast.error("You can compare up to 4 products");
+                          } else {
+                            addToComparison(product);
+                            toast.success("Added to comparison");
+                          }
+                        }
+                      }}
+                      className="absolute top-12 right-2 z-10 p-2 bg-white rounded-full shadow-md hover:bg-gray-100 transition-colors opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Scale
+                        className={`w-5 h-5 ${
+                          isInComparison(product.sku)
+                            ? "text-purple-600"
+                            : "text-gray-600"
+                        }`}
+                      />
+                    </button>
+                    <Link to={`/products/${product._id}`}>
+                      <div className="relative overflow-hidden">
+                        <img
+                          src={primaryImage}
+                          alt={product.name}
+                          className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        {product.stockQuantity < (product.lowStockThreshold || 10) && (
+                          <span className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                            Low Stock
                           </span>
-                          {product.originalPrice && (
-                            <span className="ml-2 text-sm text-gray-500 line-through">
-                              ${product.originalPrice.toFixed(2)}
-                            </span>
-                          )}
-                        </div>
+                        )}
                       </div>
-                      <span className="text-sm text-gray-500">
-                        Stock: {product.stock}
-                      </span>
-                    </div>
-                  </Link>
-                </div>
-              ))}
+                      <div className="p-4">
+                        <h3 className="text-lg mb-2 line-clamp-1">{product.name}</h3>
+                        <div className="flex items-center gap-1 mb-2">
+                          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                          <span className="text-sm text-gray-600">
+                            {product.averageRating.toFixed(1)} ({product.totalReviews})
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <span className="text-xl text-blue-600 font-semibold">
+                              ${product.price.toFixed(2)}
+                            </span>
+                            {product.comparePrice && (
+                              <span className="ml-2 text-sm text-gray-500 line-through">
+                                ${product.comparePrice.toFixed(2)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <span className="text-sm text-gray-500">
+                          Stock: {product.stockQuantity}
+                        </span>
+                      </div>
+                    </Link>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

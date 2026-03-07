@@ -3,17 +3,18 @@ import { X, Star, ShoppingCart } from "lucide-react";
 import { Link } from "react-router";
 import { useCart } from "@/app/context/CartContext";
 import { toast } from "sonner";
+import { Product } from "../services/products";
 
 export function ProductComparison() {
   const { comparisonList, removeFromComparison, clearComparison } = useComparison();
   const { addToCart } = useCart();
 
-  const handleAddToCart = (product: any) => {
+  const handleAddToCart = (product: Product) => {
     addToCart({
-      id: product.id,
+      sku: product.sku,
       name: product.name,
-      price: product.price,
-      image: product.image,
+      price: (product.price),
+      image: product.images[0],
     });
     toast.success("Added to cart!");
   };
@@ -59,17 +60,17 @@ export function ProductComparison() {
             <tr className="border-b">
               <td className="p-4 font-semibold bg-gray-50 w-48">Product</td>
               {comparisonList.map((product) => (
-                <td key={product.id} className="p-4 text-center relative">
+                <td key={product.sku} className="p-4 text-center relative">
                   <button
-                    onClick={() => removeFromComparison(product.id)}
+                    onClick={() => removeFromComparison(product.sku)}
                     className="absolute top-2 right-2 text-gray-400 hover:text-red-500"
                     aria-label="Remove from comparison"
                   >
                     <X className="w-5 h-5" />
                   </button>
-                  <Link to={`/products/${product.id}`}>
+                  <Link to={`/products/${product._id}`}>
                     <img
-                      src={product.image}
+                      src={product.images[0]}
                       alt={product.name}
                       className="w-full h-48 object-cover rounded-lg mb-3"
                     />
@@ -85,13 +86,13 @@ export function ProductComparison() {
             <tr className="border-b">
               <td className="p-4 font-semibold bg-gray-50">Price</td>
               {comparisonList.map((product) => (
-                <td key={product.id} className="p-4 text-center">
+                <td key={product.sku} className="p-4 text-center">
                   <div className="text-2xl font-bold text-blue-600">
                     ${product.price.toFixed(2)}
                   </div>
-                  {product.originalPrice && (
+                  {product.comparePrice && (
                     <div className="text-sm text-gray-500 line-through">
-                      ${product.originalPrice.toFixed(2)}
+                      ${product.comparePrice.toFixed(2)}
                     </div>
                   )}
                 </td>
@@ -102,13 +103,13 @@ export function ProductComparison() {
             <tr className="border-b">
               <td className="p-4 font-semibold bg-gray-50">Rating</td>
               {comparisonList.map((product) => (
-                <td key={product.id} className="p-4 text-center">
+                <td key={product.sku} className="p-4 text-center">
                   <div className="flex items-center justify-center gap-1 mb-1">
                     {[...Array(5)].map((_, i) => (
                       <Star
                         key={i}
                         className={`w-4 h-4 ${
-                          i < Math.floor(product.rating)
+                          i < Math.floor(product.averageRating)
                             ? "fill-yellow-400 text-yellow-400"
                             : "text-gray-300"
                         }`}
@@ -116,7 +117,7 @@ export function ProductComparison() {
                     ))}
                   </div>
                   <div className="text-sm text-gray-600">
-                    {product.rating} ({product.reviews} reviews)
+                    {product.averageRating} ({product.totalReviews} reviews)
                   </div>
                 </td>
               ))}
@@ -126,8 +127,8 @@ export function ProductComparison() {
             <tr className="border-b">
               <td className="p-4 font-semibold bg-gray-50">Category</td>
               {comparisonList.map((product) => (
-                <td key={product.id} className="p-4 text-center">
-                  {product.category}
+                <td key={product.sku} className="p-4 text-center">
+                  {product.categoryId || "Uncategorized"}
                 </td>
               ))}
             </tr>
@@ -136,8 +137,8 @@ export function ProductComparison() {
             <tr className="border-b">
               <td className="p-4 font-semibold bg-gray-50">Description</td>
               {comparisonList.map((product) => (
-                <td key={product.id} className="p-4">
-                  <p className="text-sm text-gray-600">{product.description}</p>
+                <td key={product.sku} className="p-4">
+                  <p className="text-sm text-gray-600">{product.description || product.shortDescription}</p>
                 </td>
               ))}
             </tr>
@@ -146,14 +147,14 @@ export function ProductComparison() {
             <tr className="border-b">
               <td className="p-4 font-semibold bg-gray-50">Availability</td>
               {comparisonList.map((product) => (
-                <td key={product.id} className="p-4 text-center">
+                <td key={product.sku} className="p-4 text-center">
                   <span
                     className={
-                      product.stock > 0 ? "text-green-600" : "text-red-600"
+                      product.stockQuantity > 0 ? "text-green-600" : "text-red-600"
                     }
                   >
-                    {product.stock > 0
-                      ? `${product.stock} in stock`
+                    {product.stockQuantity > 0
+                      ? `${product.stockQuantity} in stock`
                       : "Out of stock"}
                   </span>
                 </td>
@@ -164,10 +165,10 @@ export function ProductComparison() {
             <tr>
               <td className="p-4 font-semibold bg-gray-50">Actions</td>
               {comparisonList.map((product) => (
-                <td key={product.id} className="p-4 text-center">
+                <td key={product.sku} className="p-4 text-center">
                   <button
                     onClick={() => handleAddToCart(product)}
-                    disabled={product.stock === 0}
+                    disabled={product.stockQuantity === 0}
                     className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     <ShoppingCart className="w-4 h-4" />

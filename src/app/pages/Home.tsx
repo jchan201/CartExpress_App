@@ -1,13 +1,42 @@
 import { Link } from "react-router";
 import { ArrowRight, Star, TrendingUp } from "lucide-react";
-import { products } from "@/app/data/products";
 import { RecentlyViewedSection } from "@/app/components/RecentlyViewedSection";
+import { useState, useEffect } from "react";
+import { productsService, Product } from "@/app/services/products";
+import { toast } from "sonner";
 
 export function Home() {
-  // Get featured products (top rated products)
-  const featuredProducts = [...products]
-    .sort((a, b) => b.rating - a.rating)
-    .slice(0, 4);
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchFeaturedProducts = async () => {
+      try {
+        setIsLoading(true);
+        const result = await productsService.getProducts({
+          limit: 4,
+        });
+
+        // Handle both array and object responses
+        const productList = Array.isArray(result) ? result : result.products;
+
+        // Get top 4 by rating
+        const featured = productList
+          .sort((a, b) => b.averageRating - a.averageRating)
+          .slice(0, 4);
+
+        setFeaturedProducts(featured);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to load featured products";
+        toast.error(errorMessage);
+        setFeaturedProducts([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFeaturedProducts();
+  }, []);
 
   return (
     <div>
@@ -80,40 +109,56 @@ export function Home() {
             <TrendingUp className="w-8 h-8 text-blue-600" />
             <h2 className="text-3xl">Featured Products</h2>
           </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {featuredProducts.map((product) => (
-              <Link
-                key={product.id}
-                to={`/products/${product.id}`}
-                className="bg-gray-50 rounded-lg shadow-sm hover:shadow-md transition-all overflow-hidden group hover:-translate-y-1"
-              >
-                <div className="relative overflow-hidden">
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                  <span className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-full font-semibold">
-                    Featured
-                  </span>
-                </div>
-                <div className="p-4">
-                  <h3 className="text-lg mb-2 line-clamp-1">{product.name}</h3>
-                  <div className="flex items-center gap-1 mb-2">
-                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                    <span className="text-sm text-gray-600">
-                      {product.rating} ({product.reviews})
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xl text-blue-600 font-semibold">
-                      ${product.price.toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
+          {isLoading ? (
+            <div className="text-center py-12">
+              <div className="inline-block">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              </div>
+              <p className="text-gray-600 mt-4">Loading featured products...</p>
+            </div>
+          ) : featuredProducts.length === 0 ? (
+            <div className="text-center py-12 text-gray-600">
+              <p>No featured products available at the moment.</p>
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {featuredProducts.map((product) => {
+                const primaryImage = product.thumbnail || product.images?.[0] || "/placeholder.png";
+                return (
+                  <Link
+                    key={product.sku}
+                    to={`/products/${product._id}`}
+                    className="bg-gray-50 rounded-lg shadow-sm hover:shadow-md transition-all overflow-hidden group hover:-translate-y-1"
+                  >
+                    <div className="relative overflow-hidden">
+                      <img
+                        src={primaryImage}
+                        alt={product.name}
+                        className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <span className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-full font-semibold">
+                        Featured
+                      </span>
+                    </div>
+                    <div className="p-4">
+                      <h3 className="text-lg mb-2 line-clamp-1">{product.name}</h3>
+                      <div className="flex items-center gap-1 mb-2">
+                        <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                        <span className="text-sm text-gray-600">
+                          {product.averageRating.toFixed(1)} ({product.totalReviews})
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xl text-blue-600 font-semibold">
+                          ${product.price.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
           <div className="text-center mt-10">
             <Link
               to="/products"
