@@ -1,59 +1,85 @@
-import { createContext, useContext, useState, ReactNode } from "react";
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: "customer" | "admin";
-}
+import { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import { authService, User } from "@/app/services/auth";
+import { toast } from "sonner";
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => void;
+  isLoading: boolean;
+  error: string | null;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
-  signup: (email: string, password: string, name: string) => void;
+  signup: (email: string, password: string, firstName: string, lastName: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const login = (email: string, password: string) => {
-    // Mock login - in real app, this would call an API
-    if (email === "admin@example.com") {
-      setUser({
-        id: "1",
-        email,
-        name: "Admin User",
-        role: "admin",
-      });
-    } else {
-      setUser({
-        id: "2",
-        email,
-        name: "Customer User",
-        role: "customer",
-      });
+  // Initialize auth on app mount - restore user if token exists
+  useEffect(() => {
+    authService.initializeAuth();
+    const storedUser = authService.getUser();
+    if (storedUser) {
+      setUser(storedUser);
+    }
+  }, []);
+
+  const login = async (email: string, password: string): Promise<void> => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await authService.login({ email, password });
+      setUser(response.user);
+      toast.success("Logged in successfully!");
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Login failed";
+      setError(errorMessage);
+      toast.error(errorMessage);
+      throw err;
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const logout = () => {
+  const logout = (): void => {
+    authService.logout();
     setUser(null);
+    setError(null);
+    toast.success("Logged out successfully!");
   };
 
-  const signup = (email: string, password: string, name: string) => {
-    // Mock signup
-    setUser({
-      id: Date.now().toString(),
-      email,
-      name,
-      role: "customer",
-    });
+  const signup = async (
+    email: string,
+    password: string,
+    firstName: string,
+    lastName: string
+  ): Promise<void> => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await authService.register({
+        email,
+        password,
+        firstName,
+        lastName,
+      });
+      setUser(response.user);
+      toast.success("Account created successfully!");
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Signup failed";
+      setError(errorMessage);
+      toast.error(errorMessage);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, signup }}>
+    <AuthContext.Provider value={{ user, isLoading, error, login, logout, signup }}>
       {children}
     </AuthContext.Provider>
   );

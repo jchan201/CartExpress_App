@@ -17,9 +17,9 @@ export function RecentlyViewedSection() {
           <h2 className="text-2xl">Recently Viewed</h2>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {recentlyViewed.map((product) => (
+          {recentlyViewed.map((product, index) => (
             <Link
-              key={product.sku}
+              key={index}
               to={`/products/${product._id}`}
               className="bg-gray-50 rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden group"
             >

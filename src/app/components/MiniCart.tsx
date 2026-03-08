@@ -37,8 +37,8 @@ export function MiniCart({ isOpen, onClose }: MiniCartProps) {
             </div>
           ) : (
             <div className="space-y-4">
-              {items.map((item) => (
-                <div key={item.sku} className="flex gap-3 pb-4 border-b">
+              {items.map((item, index) => (
+                <div key={index} className="flex gap-3 pb-4 border-b">
                   <img
                     src={item.image}
                     alt={item.name}

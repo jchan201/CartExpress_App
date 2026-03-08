@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { getOrCreateSessionId } from "@/app/utilities/sessionId";
+import { cartService } from "@/app/services/cart";
+import { authService } from "@/app/services/auth";
 
 export interface CartItem {
   sku: string;
@@ -20,27 +22,65 @@ interface CartContextType {
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
+const CART_STORAGE_KEY = "cartexpress_cart";
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [sessionId, setSessionId] = useState<string>("");
 
-  // Initialize session ID on mount
+  // Initialize session ID and sync cart from backend on mount
   useEffect(() => {
     const id = getOrCreateSessionId();
     setSessionId(id);
 
-    // Optionally sync cart from backend here
-    // const syncCartFromBackend = async () => {
-    //   try {
-    //     const cart = await cartService.getCart(null, id);
-    //     // Map backend cart items to local format if needed
-    //   } catch (err) {
-    //     console.error("Failed to sync cart:", err);
-    //   }
-    // };
-    // syncCartFromBackend();
+    const initializeCart = async () => {
+      try {
+        // Get user from auth service if logged in
+        const user = authService.getUser();
+        const userId = user?._id;
+
+        // Sync cart from backend
+        const backendCart = await cartService.getCart(userId, id);
+
+        if (backendCart.items && backendCart.items.length > 0) {
+          // Transform backend cart items to local format
+          const transformedItems: CartItem[] = backendCart.items.map((item) => ({
+            sku: item.variantId || item.productId,
+            name: item.name || "",
+            price: item.price || 0,
+            quantity: item.quantity,
+            image: item.image || "",
+          }));
+          setItems(transformedItems);
+          return;
+        }
+      } catch (err) {
+        console.error("Failed to sync cart from backend:", err);
+      }
+
+      // Fallback: load cart from localStorage if backend sync fails or cart is empty
+      try {
+        const storedCart = localStorage.getItem(CART_STORAGE_KEY);
+        if (storedCart) {
+          const parsedCart = JSON.parse(storedCart);
+          setItems(parsedCart);
+        }
+      } catch (err) {
+        console.error("Failed to load cart from localStorage:", err);
+      }
+    };
+
+    initializeCart();
   }, []);
+
+  // Save cart to localStorage whenever items change
+  useEffect(() => {
+    try {
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+    } catch (err) {
+      console.error("Failed to save cart to localStorage:", err);
+    }
+  }, [items]);
 
   const addToCart = (item: Omit<CartItem, "quantity">) => {
     setItems((prev) => {
@@ -52,10 +92,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
       return [...prev, { ...item, quantity: 1 }];
     });
+
+    // Sync with backend
+    const user = authService.getUser();
+    const existingItem = items.find((i) => i.sku === item.sku);
+    const newQuantity = existingItem ? existingItem.quantity + 1 : 1;
+    cartService.addToCart(item.sku, newQuantity, user?._id, sessionId).catch((err) => {
+      console.error("Failed to sync add to cart with backend:", err);
+    });
   };
 
   const removeFromCart = (id: string) => {
     setItems((prev) => prev.filter((item) => item.sku !== id));
+
+    // Sync with backend
+    const user = authService.getUser();
+    cartService.removeFromCart(id, user?._id, sessionId).catch((err) => {
+      console.error("Failed to sync remove from cart with backend:", err);
+    });
   };
 
   const updateQuantity = (id: string, quantity: number) => {
@@ -66,10 +120,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems((prev) =>
       prev.map((item) => (item.sku === id ? { ...item, quantity } : item))
     );
+
+    // Sync with backend
+    const user = authService.getUser();
+    cartService.updateQuantity(id, quantity, user?._id, sessionId).catch((err) => {
+      console.error("Failed to sync quantity update with backend:", err);
+    });
   };
 
   const clearCart = () => {
     setItems([]);
+
+    // Sync with backend
+    const user = authService.getUser();
+    cartService.clearCart(user?._id, sessionId).catch((err) => {
+      console.error("Failed to sync clear cart with backend:", err);
+    });
   };
 
   const total = items.reduce(
