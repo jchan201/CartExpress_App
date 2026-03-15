@@ -13,7 +13,7 @@ export function Checkout() {
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
-    fullName: user?.name || "",
+    fullName: user?.firstName && user?.lastName ? `${user?.firstName} ${user?.lastName}` : "",
     email: user?.email || "",
     address: "",
     city: "",
@@ -22,6 +22,7 @@ export function Checkout() {
     expiry: "",
     cvv: "",
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (items.length === 0) {
@@ -29,28 +30,41 @@ export function Checkout() {
     }
   }, [items.length, navigate]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Create order
-    const shippingAddress = `${formData.address}, ${formData.city}, ${formData.zipCode}`;
-    addOrder({
-      items: items.map(item => ({
-        id: item.sku,
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        image: item.image,
-      })),
-      total: total * 1.1, // Including tax
-      shippingAddress,
-    });
-    
-    clearCart();
-    toast.success("Order placed successfully!");
-    setTimeout(() => {
-      navigate("/orders");
-    }, 1500);
+    setIsSubmitting(true);
+
+    try {
+      // Create order
+      const shippingAddress = `${formData.address}, ${formData.city}, ${formData.zipCode}`;
+      const tax = total * 0.1;
+
+      await addOrder({
+        items: items.map(item => ({
+          id: item.productId,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          image: item.image,
+        })),
+        total: total + tax,
+        tax,
+        shippingAddress,
+        paymentMethod: "card",
+      });
+
+      clearCart();
+      toast.success("Order placed successfully!");
+      setTimeout(() => {
+        navigate("/orders");
+      }, 1500);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to place order";
+      toast.error(errorMessage);
+      console.error("Order submission error:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -183,9 +197,10 @@ export function Checkout() {
 
               <button
                 type="submit"
-                className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                disabled={isSubmitting}
+                className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
-                Place Order
+                {isSubmitting ? "Placing Order..." : "Place Order"}
               </button>
             </form>
           </div>

@@ -89,17 +89,18 @@ export function ProductDetail() {
 
   const handleAddToCart = () => {
     addToCart({
-      id: product._id,
+      productId: product._id,
+      variantId: product.variants && product.variants.length > 0 ? product.variants[0]._id : undefined,
+      sku: product.sku,
       name: product.name,
       price: product.price,
       image: product.thumbnail || product.images?.[0] || "",
-      quantity: 1,
-    } as any);
+    });
     toast.success("Added to cart!");
   };
 
   const handleToggleWishlist = () => {
-    const productId = product.sku;
+    const productId = product._id;
     if (isInWishlist(productId)) {
       removeFromWishlist(productId);
       toast.success("Removed from wishlist");

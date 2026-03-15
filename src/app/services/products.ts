@@ -1,7 +1,7 @@
 import apiClient, { ApiResponse } from "./api";
 
 export interface Product {
-  _id?: string;
+  _id: string;
   name: string;
   slug: string;
   description?: string;

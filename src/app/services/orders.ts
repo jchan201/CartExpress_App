@@ -36,10 +36,10 @@ export const ordersService = {
    */
   getUserOrders: async (userId: string): Promise<Order[]> => {
     try {
-      const response = await apiClient.get<ApiResponse<Order[]>>(
-        `/orders/user/${userId}`
-      );
-      return response.data.data;
+      const response = await apiClient.get<ApiResponse<{ orders: Order[] }>>("/orders/my-orders", {
+        params: { userId: userId }
+      });
+      return response.data.data.orders;
     } catch (error) {
       console.error(`Failed to fetch orders for user ${userId}:`, error);
       throw error;
@@ -51,8 +51,8 @@ export const ordersService = {
    */
   getOrder: async (orderId: string): Promise<Order> => {
     try {
-      const response = await apiClient.get<ApiResponse<Order>>(`/orders/${orderId}`);
-      return response.data.data;
+      const response = await apiClient.get<ApiResponse<{ order: Order }>>(`/orders/${orderId}`);
+      return response.data.data.order;
     } catch (error) {
       console.error(`Failed to fetch order ${orderId}:`, error);
       throw error;
@@ -64,7 +64,7 @@ export const ordersService = {
    */
   createOrder: async (orderData: CreateOrderPayload): Promise<Order> => {
     try {
-      const response = await apiClient.post<Order>("/orders", {
+      const response = await apiClient.post<ApiResponse<{ order: Order }>>("/orders", {
         userId: orderData.userId || undefined,
         sessionId: orderData.sessionId,
         items: orderData.items,
@@ -72,7 +72,7 @@ export const ordersService = {
         paymentMethod: orderData.paymentMethod,
         tax: orderData.tax,
       });
-      return response.data;
+      return response.data.data.order;
     } catch (error) {
       console.error("Failed to create order:", error);
       throw error;
@@ -88,11 +88,11 @@ export const ordersService = {
     status: string
   ): Promise<Order> => {
     try {
-      const response = await apiClient.put<Order>(
+      const response = await apiClient.put<ApiResponse<{ order: Order }>>(
         `/orders/${orderId}/status`,
         { status }
       );
-      return response.data;
+      return response.data.data.order;
     } catch (error) {
       console.error(`Failed to update order status for ${orderId}:`, error);
       throw error;
@@ -105,8 +105,8 @@ export const ordersService = {
    */
   getAllOrders: async (): Promise<Order[]> => {
     try {
-      const response = await apiClient.get<ApiResponse<Order[]>>("/orders");
-      return response.data.data;
+      const response = await apiClient.get<ApiResponse<{ orders: Order[] }>>("/orders");
+      return response.data.data.orders;
     } catch (error) {
       console.error("Failed to fetch all orders:", error);
       throw error;

@@ -21,6 +21,8 @@ export function QuickViewModal({ product, open, onClose }: QuickViewModalProps) 
 
   const handleAddToCart = () => {
     addToCart({
+      productId: product._id,
+      variantId: product.variants && product.variants.length > 0 ? product.variants[0]._id : "",
       sku: product.sku,
       name: product.name,
       price: product.price,

@@ -126,9 +126,38 @@ export function Profile() {
             {orders.length === 0 ? (
               <p className="text-gray-600">No orders yet</p>
             ) : (
-              <p className="text-gray-600">
-                You have {orders.length} order{orders.length > 1 ? "s" : ""}
-              </p>
+              <div className="space-y-3">
+                <p className="text-gray-600 text-sm">
+                  You have {orders.length} order{orders.length > 1 ? "s" : ""} • Total spent: ${orders.reduce((sum, o) => sum + o.total, 0).toFixed(2)}
+                </p>
+                <div className="space-y-2">
+                  {orders.slice(0, 3).map((order) => (
+                    <div key={order.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div>
+                        <p className="text-sm font-medium">{order.id}</p>
+                        <p className="text-xs text-gray-600">
+                          {new Date(order.orderDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-blue-600">${order.total.toFixed(2)}</p>
+                        <span
+                          className={`text-xs px-2 py-1 rounded-full ${
+                            order.status === "delivered"
+                              ? "bg-green-100 text-green-700"
+                              : order.status === "shipped"
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-yellow-100 text-yellow-700"
+                          }`}
+                        >
+                          {order.status?.charAt(0).toUpperCase()}
+                          {order.status?.slice(1)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
 

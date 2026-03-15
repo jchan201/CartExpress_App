@@ -11,6 +11,8 @@ export function ProductComparison() {
 
   const handleAddToCart = (product: Product) => {
     addToCart({
+      productId: product._id,
+      variantId: product.variants && product.variants.length > 0 ? product.variants[0]._id : undefined,
       sku: product.sku,
       name: product.name,
       price: (product.price),

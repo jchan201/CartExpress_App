@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "@/app/context/AuthContext";
-import { Package, ShoppingBag, Edit, Trash2, Plus } from "lucide-react";
+import { Package, ShoppingBag, Edit, Trash2, Plus, CheckCircle, Truck, AlertCircle } from "lucide-react";
 import { Product, productsService } from "../services/products";
+import { Order, ordersService } from "../services/orders";
 import { CloudinaryImageUploader } from "../components/CloudinaryImageUploader";
 
 export function AdminDashboard() {
@@ -10,8 +11,10 @@ export function AdminDashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"products" | "orders">("products");
   const [products, setProducts] = useState<Product[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isAddingProduct, setIsAddingProduct] = useState(false);
+  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [newProduct, setNewProduct] = useState<Partial<Product>>({
     name: "",
     slug: "",
@@ -25,9 +28,10 @@ export function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load products on mount
+  // Load products and orders on mount
   useEffect(() => {
     loadProducts();
+    loadOrders();
   }, []);
 
   const loadProducts = async () => {
@@ -44,6 +48,15 @@ export function AdminDashboard() {
     }
   };
 
+  const loadOrders = async () => {
+    try {
+      const allOrders = await ordersService.getAllOrders();
+      setOrders(allOrders);
+    } catch (err) {
+      console.error("Failed to load orders:", err);
+    }
+  };
+
   // Redirect if not admin
   useEffect(() => {
     if (!user || user.role !== "admin") {
@@ -55,29 +68,23 @@ export function AdminDashboard() {
     return null;
   }
 
-  const mockOrders = [
-    {
-      id: "ORD-001",
-      customer: "John Doe",
-      date: "2026-01-28",
-      total: 2499.99,
-      status: "Delivered",
-    },
-    {
-      id: "ORD-002",
-      customer: "Jane Smith",
-      date: "2026-01-29",
-      total: 349.99,
-      status: "Processing",
-    },
-    {
-      id: "ORD-003",
-      customer: "Bob Johnson",
-      date: "2026-01-30",
-      total: 1549.98,
-      status: "Shipped",
-    },
-  ];
+  const handleUpdateOrderStatus = async (
+    orderId: string,
+    newStatus: "pending" | "processing" | "shipped" | "delivered" | "cancelled"
+  ) => {
+    setUpdatingOrderId(orderId);
+    try {
+      const updatedOrder = await ordersService.updateOrderStatus(orderId, newStatus);
+      setOrders(
+        orders.map((o) => (o._id === orderId ? updatedOrder : o))
+      );
+    } catch (err) {
+      console.error("Failed to update order status:", err);
+      alert("Failed to update order status");
+    } finally {
+      setUpdatingOrderId(null);
+    }
+  };
 
   const handleDeleteProduct = (id: string) => {
     if (confirm("Are you sure you want to delete this product?")) {
@@ -140,10 +147,10 @@ export function AdminDashboard() {
 
   const stats = [
     { label: "Total Products", value: products.length, icon: Package },
-    { label: "Total Orders", value: mockOrders.length, icon: ShoppingBag },
+    { label: "Total Orders", value: orders.length, icon: ShoppingBag },
     {
       label: "Total Revenue",
-      value: `$${mockOrders.reduce((sum, o) => sum + o.total, 0).toFixed(2)}`,
+      value: `$${orders.reduce((sum, o) => sum + o.total, 0).toFixed(2)}`,
       icon: Package,
     },
   ];
@@ -268,54 +275,87 @@ export function AdminDashboard() {
       {activeTab === "orders" && (
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
           <div className="p-4 border-b">
-            <h2 className="text-xl">Recent Orders</h2>
+            <h2 className="text-xl">All Orders</h2>
+            {orders.length === 0 && <p className="text-gray-500 text-sm mt-2">No orders yet</p>}
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-sm text-gray-700">
-                    Order ID
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm text-gray-700">
-                    Customer
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm text-gray-700">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm text-gray-700">
-                    Total
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm text-gray-700">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {mockOrders.map((order) => (
-                  <tr key={order.id}>
-                    <td className="px-6 py-4">{order.id}</td>
-                    <td className="px-6 py-4">{order.customer}</td>
-                    <td className="px-6 py-4">{order.date}</td>
-                    <td className="px-6 py-4">${order.total.toFixed(2)}</td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-3 py-1 rounded-full text-sm ${
-                          order.status === "Delivered"
-                            ? "bg-green-100 text-green-700"
-                            : order.status === "Shipped"
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-yellow-100 text-yellow-700"
-                        }`}
-                      >
-                        {order.status}
-                      </span>
-                    </td>
+          {orders.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-sm text-gray-700">
+                      Order ID
+                    </th>
+                    <th className="px-6 py-3 text-left text-sm text-gray-700">
+                      Items
+                    </th>
+                    <th className="px-6 py-3 text-left text-sm text-gray-700">
+                      Total
+                    </th>
+                    <th className="px-6 py-3 text-left text-sm text-gray-700">
+                      Date
+                    </th>
+                    <th className="px-6 py-3 text-left text-sm text-gray-700">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-sm text-gray-700">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y">
+                  {orders.map((order) => (
+                    <tr key={order._id}>
+                      <td className="px-6 py-4 text-sm font-medium">{order._id?.slice(-8)}</td>
+                      <td className="px-6 py-4 text-sm">{order.items.length} item(s)</td>
+                      <td className="px-6 py-4 text-sm font-semibold">${order.total.toFixed(2)}</td>
+                      <td className="px-6 py-4 text-sm">
+                        {new Date(order.createdAt || "").toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1 w-fit ${
+                            order.status === "delivered"
+                              ? "bg-green-100 text-green-700"
+                              : order.status === "shipped"
+                              ? "bg-blue-100 text-blue-700"
+                              : order.status === "cancelled"
+                              ? "bg-red-100 text-red-700"
+                              : "bg-yellow-100 text-yellow-700"
+                          }`}
+                        >
+                          {order.status === "delivered" && <CheckCircle className="w-4 h-4" />}
+                          {order.status === "shipped" && <Truck className="w-4 h-4" />}
+                          {order.status === "processing" && <AlertCircle className="w-4 h-4" />}
+                          {order.status?.charAt(0).toUpperCase()}
+                          {order.status?.slice(1)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <select
+                          disabled={updatingOrderId === order._id}
+                          onChange={(e) =>
+                            handleUpdateOrderStatus(
+                              order._id!,
+                              e.target.value as "pending" | "processing" | "shipped" | "delivered" | "cancelled"
+                            )
+                          }
+                          defaultValue={order.status}
+                          className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="processing">Processing</option>
+                          <option value="shipped">Shipped</option>
+                          <option value="delivered">Delivered</option>
+                          <option value="cancelled">Cancelled</option>
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 

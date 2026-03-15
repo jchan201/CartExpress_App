@@ -52,7 +52,7 @@ export const cartService = {
     variantId?: string
   ): Promise<Cart> => {
     try {
-      const response = await apiClient.post<Cart>("/cart/add", {
+      const response = await apiClient.post<Cart>("/cart/items", {
         productId,
         quantity,
         variantId,

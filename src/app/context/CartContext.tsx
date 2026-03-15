@@ -4,6 +4,8 @@ import { cartService } from "@/app/services/cart";
 import { authService } from "@/app/services/auth";
 
 export interface CartItem {
+  productId: string;
+  variantId?: string;
   sku: string;
   name: string;
   price: number;
@@ -45,6 +47,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         if (backendCart.items && backendCart.items.length > 0) {
           // Transform backend cart items to local format
           const transformedItems: CartItem[] = backendCart.items.map((item) => ({
+            productId: item.productId,
+            variantId: item.variantId || "",
             sku: item.variantId || item.productId,
             name: item.name || "",
             price: item.price || 0,
@@ -97,7 +101,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const user = authService.getUser();
     const existingItem = items.find((i) => i.sku === item.sku);
     const newQuantity = existingItem ? existingItem.quantity + 1 : 1;
-    cartService.addToCart(item.sku, newQuantity, user?._id, sessionId).catch((err) => {
+    cartService.addToCart(item.productId, newQuantity, user?._id, sessionId).catch((err) => {
       console.error("Failed to sync add to cart with backend:", err);
     });
   };
@@ -118,7 +122,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return;
     }
     setItems((prev) =>
-      prev.map((item) => (item.sku === id ? { ...item, quantity } : item))
+      prev.map((item) => (item.productId === id ? { ...item, quantity } : item))
     );
 
     // Sync with backend
