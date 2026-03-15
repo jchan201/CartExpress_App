@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "@/app/context/AuthContext";
 import { Package, ShoppingBag, Edit, Trash2, Plus } from "lucide-react";
-import { Product } from "../services/products";
+import { Product, productsService } from "../services/products";
+import { CloudinaryImageUploader } from "../components/CloudinaryImageUploader";
 
 export function AdminDashboard() {
   const { user } = useAuth();
@@ -10,6 +11,38 @@ export function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<"products" | "orders">("products");
   const [products, setProducts] = useState<Product[]>([]);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isAddingProduct, setIsAddingProduct] = useState(false);
+  const [newProduct, setNewProduct] = useState<Partial<Product>>({
+    name: "",
+    slug: "",
+    sku: "",
+    price: 0,
+    stockQuantity: 0,
+    images: [],
+    averageRating: 0,
+    totalReviews: 0,
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load products on mount
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  const loadProducts = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await productsService.getProducts();
+      setProducts(response.products);
+    } catch (err) {
+      setError("Failed to load products");
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Redirect if not admin
   useEffect(() => {
@@ -48,7 +81,16 @@ export function AdminDashboard() {
 
   const handleDeleteProduct = (id: string) => {
     if (confirm("Are you sure you want to delete this product?")) {
-      setProducts(products.filter((p) => p._id !== id));
+      const deleteAsync = async () => {
+        try {
+          await productsService.deleteProduct(id);
+          setProducts(products.filter((p) => p._id !== id));
+        } catch (err) {
+          setError("Failed to delete product");
+          console.error(err);
+        }
+      };
+      deleteAsync();
     }
   };
 
@@ -57,10 +99,43 @@ export function AdminDashboard() {
   };
 
   const handleSaveProduct = (updatedProduct: Product) => {
-    setProducts(
-      products.map((p) => (p._id === updatedProduct._id ? updatedProduct : p))
-    );
-    setEditingProduct(null);
+    const saveAsync = async () => {
+      try {
+        if (!updatedProduct._id) return;
+        await productsService.updateProduct(updatedProduct._id, updatedProduct);
+        setProducts(
+          products.map((p) => (p._id === updatedProduct._id ? updatedProduct : p))
+        );
+        setEditingProduct(null);
+      } catch (err) {
+        setError("Failed to update product");
+        console.error(err);
+      }
+    };
+    saveAsync();
+  };
+
+  const handleAddProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setError(null);
+      const createdProduct = await productsService.createProduct(newProduct);
+      setProducts([...products, createdProduct]);
+      setIsAddingProduct(false);
+      setNewProduct({
+        name: "",
+        slug: "",
+        sku: "",
+        price: 0,
+        stockQuantity: 0,
+        images: [],
+        averageRating: 0,
+        totalReviews: 0,
+      });
+    } catch (err) {
+      setError("Failed to add product");
+      console.error(err);
+    }
   };
 
   const stats = [
@@ -121,7 +196,9 @@ export function AdminDashboard() {
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
           <div className="p-4 border-b flex justify-between items-center">
             <h2 className="text-xl">Manage Products</h2>
-            <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            <button
+              onClick={() => setIsAddingProduct(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
               <Plus className="w-5 h-5" />
               Add Product
             </button>
@@ -152,11 +229,11 @@ export function AdminDashboard() {
                   <tr key={product._id}>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <img
+                        {product.images.length > 0 && (<img
                           src={product.images[0]}
                           alt={product.name}
                           className="w-12 h-12 object-cover rounded"
-                        />
+                        />)}
                         <span>{product.name}</span>
                       </div>
                     </td>
@@ -244,7 +321,7 @@ export function AdminDashboard() {
 
       {/* Edit Product Modal */}
       {editingProduct && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full">
             <h2 className="text-xl mb-4">Edit Product</h2>
             <form
@@ -297,6 +374,15 @@ export function AdminDashboard() {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
+              <CloudinaryImageUploader
+                images={editingProduct.images || []}
+                onImagesChange={(images) =>
+                  setEditingProduct({
+                    ...editingProduct,
+                    images,
+                  })
+                }
+              />
               <div className="flex gap-2">
                 <button
                   type="submit"
@@ -307,6 +393,126 @@ export function AdminDashboard() {
                 <button
                   type="button"
                   onClick={() => setEditingProduct(null)}
+                  className="flex-1 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Product Modal */}
+      {isAddingProduct && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl mb-4">Add New Product</h2>
+            {error && (
+              <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
+            <form onSubmit={handleAddProduct} className="space-y-4">
+              <div>
+                <label className="block text-sm mb-2">Product Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={newProduct.name || ""}
+                  onChange={(e) =>
+                    setNewProduct({
+                      ...newProduct,
+                      name: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-2">Slug *</label>
+                <input
+                  type="text"
+                  required
+                  value={newProduct.slug || ""}
+                  onChange={(e) =>
+                    setNewProduct({
+                      ...newProduct,
+                      slug: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-2">SKU *</label>
+                <input
+                  type="text"
+                  required
+                  value={newProduct.sku || ""}
+                  onChange={(e) =>
+                    setNewProduct({
+                      ...newProduct,
+                      sku: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-2">Price *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  value={newProduct.price || ""}
+                  onChange={(e) =>
+                    setNewProduct({
+                      ...newProduct,
+                      price: parseFloat(e.target.value),
+                    })
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-2">Stock Quantity *</label>
+                <input
+                  type="number"
+                  required
+                  value={newProduct.stockQuantity || ""}
+                  onChange={(e) =>
+                    setNewProduct({
+                      ...newProduct,
+                      stockQuantity: parseInt(e.target.value),
+                    })
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <CloudinaryImageUploader
+                images={newProduct.images || []}
+                onImagesChange={(images) =>
+                  setNewProduct({
+                    ...newProduct,
+                    images,
+                  })
+                }
+              />
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="flex-1 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {isLoading ? "Adding..." : "Add Product"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddingProduct(false);
+                    setError(null);
+                  }}
                   className="flex-1 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
                 >
                   Cancel

@@ -90,8 +90,8 @@ export const productsService = {
    */
   createProduct: async (data: Partial<Product>): Promise<Product> => {
     try {
-      const response = await apiClient.post<ApiResponse<Product>>("/products", data);
-      return response.data.data;
+      const response = await apiClient.post<ApiResponse<{ product: Product }>>("/products", data);
+      return response.data.data.product;
     } catch (error) {
       console.error("Failed to create product:", error);
       throw error;
@@ -106,11 +106,11 @@ export const productsService = {
     data: Partial<Product>
   ): Promise<Product> => {
     try {
-      const response = await apiClient.put<ApiResponse<Product>>(
+      const response = await apiClient.put<ApiResponse<{ product: Product }>>(
         `/products/${productId}`,
         data
       );
-      return response.data.data;
+      return response.data.data.product;
     } catch (error) {
       console.error(`Failed to update product ${productId}:`, error);
       throw error;

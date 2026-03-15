@@ -25,9 +25,18 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor - handle errors globally
+// Response interceptor - handle errors globally and store tokens
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Store token if present in response
+    const data = response.data as ApiResponse<any>;
+    if (data?.token) {
+      const token = data.token;
+      localStorage.setItem("authToken", token);
+      apiClient.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+    }
+    return response;
+  },
   (error: AxiosError) => {
     // Handle specific error cases
     if (error.response?.status === 401) {
@@ -45,6 +54,7 @@ export interface ApiResponse<T> {
   success: boolean;
   data: T;
   message?: string;
+  token?: string;
 }
 
 export default apiClient;

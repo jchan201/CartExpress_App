@@ -35,6 +35,14 @@ export interface RegisterCredentials {
 const TOKEN_KEY = "authToken";
 const USER_KEY = "authUser";
 
+/**
+ * Store authentication token in localStorage and update API headers
+ */
+export const storeAuthToken = (token: string): void => {
+  localStorage.setItem(TOKEN_KEY, token);
+  apiClient.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+};
+
 export const authService = {
   /**
    * Login with email and password
@@ -45,14 +53,12 @@ export const authService = {
         "/auth/login",
         credentials
       );
+      const token = response.data.token;
       const data = response.data.data;
 
       // Store token and user
-      localStorage.setItem(TOKEN_KEY, data.token);
+      if (token) storeAuthToken(token);
       localStorage.setItem(USER_KEY, JSON.stringify(data.user));
-
-      // Update axios headers with new token
-      apiClient.defaults.headers.common["Authorization"] = `Bearer ${data.token}`;
 
       return data;
     } catch (error) {
@@ -73,11 +79,8 @@ export const authService = {
       const data = response.data.data;
 
       // Store token and user
-      localStorage.setItem(TOKEN_KEY, data.token);
+      storeAuthToken(data.token);
       localStorage.setItem(USER_KEY, JSON.stringify(data.user));
-
-      // Update axios headers with new token
-      apiClient.defaults.headers.common["Authorization"] = `Bearer ${data.token}`;
 
       return data;
     } catch (error) {
