@@ -1,19 +1,24 @@
 import apiClient, { ApiResponse } from "./api";
 
 export interface CartItem {
+  _id?: string; // MongoDB document ID
   productId: string;
   variantId?: string;
   quantity: number;
   name?: string;
   price?: number;
   image?: string;
+  sku?: string;
 }
 
 export interface Cart {
   userId?: string;
-  sessionId: string;
+  sessionId?: string;
   items: CartItem[];
-  total: number;
+  subtotal?: number;
+  tax?: number;
+  total?: number;
+  discount?: number;
   updatedAt?: string;
 }
 
@@ -30,11 +35,11 @@ export const cartService = {
       if (userId) params.append("userId", userId);
       if (sessionId) params.append("sessionId", sessionId);
 
-      const response = await apiClient.get<ApiResponse<Cart>>(
+      const response = await apiClient.get<ApiResponse<{ cart: Cart }>>(
         "/cart",
         params.toString() ? { params: Object.fromEntries(params) } : undefined
       );
-      return response.data.data;
+      return response.data.data.cart;
     } catch (error) {
       console.error("Failed to fetch cart:", error);
       throw error;
@@ -43,23 +48,28 @@ export const cartService = {
 
   /**
    * Add item to cart
+   * Returns cart and sessionId (for guest users on first add)
    */
   addToCart: async (
     productId: string,
     quantity: number,
     userId?: string | null,
-    sessionId?: string,
     variantId?: string
-  ): Promise<Cart> => {
+  ): Promise<{ cart: Cart; sessionId?: string }> => {
     try {
-      const response = await apiClient.post<Cart>("/cart/items", {
-        productId,
-        quantity,
-        variantId,
-        userId: userId || undefined,
-        sessionId,
-      });
-      return response.data;
+      const response = await apiClient.post<ApiResponse<{ cart: Cart; sessionId?: string }>>(
+        "/cart/items",
+        {
+          productId,
+          quantity,
+          variantId,
+          userId: userId || undefined,
+        }
+      );
+      return {
+        cart: response.data.data.cart,
+        sessionId: response.data.sessionId,
+      };
     } catch (error) {
       console.error("Failed to add to cart:", error);
       throw error;
@@ -67,20 +77,16 @@ export const cartService = {
   },
 
   /**
-   * Remove item from cart
+   * Remove item from cart by item ID
    */
   removeFromCart: async (
-    productId: string,
-    userId?: string | null,
-    sessionId?: string
+    itemId: string
   ): Promise<Cart> => {
     try {
-      const response = await apiClient.post<Cart>("/cart/remove", {
-        productId,
-        userId: userId || undefined,
-        sessionId,
-      });
-      return response.data;
+      const response = await apiClient.delete<ApiResponse<{ cart: Cart }>>(
+        `/cart/items/${itemId}`
+      );
+      return response.data.data.cart;
     } catch (error) {
       console.error("Failed to remove from cart:", error);
       throw error;
@@ -88,22 +94,18 @@ export const cartService = {
   },
 
   /**
-   * Update item quantity in cart
+   * Update item quantity in cart by item ID
    */
   updateQuantity: async (
-    productId: string,
-    quantity: number,
-    userId?: string | null,
-    sessionId?: string
+    itemId: string,
+    quantity: number
   ): Promise<Cart> => {
     try {
-      const response = await apiClient.post<Cart>("/cart/update", {
-        productId,
-        quantity,
-        userId: userId || undefined,
-        sessionId,
-      });
-      return response.data;
+      const response = await apiClient.put<ApiResponse<{ cart: Cart }>>(
+        `/cart/items/${itemId}`,
+        { quantity }
+      );
+      return response.data.data.cart;
     } catch (error) {
       console.error("Failed to update cart quantity:", error);
       throw error;
@@ -113,15 +115,9 @@ export const cartService = {
   /**
    * Clear entire cart
    */
-  clearCart: async (
-    userId?: string | null,
-    sessionId?: string
-  ): Promise<void> => {
+  clearCart: async (): Promise<void> => {
     try {
-      await apiClient.post("/cart/clear", {
-        userId: userId || undefined,
-        sessionId,
-      });
+      await apiClient.delete("/cart");
     } catch (error) {
       console.error("Failed to clear cart:", error);
       throw error;

@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { ShoppingCart, X } from "lucide-react";
 import { useCart } from "@/app/context/CartContext";
 
@@ -9,6 +9,7 @@ interface MiniCartProps {
 
 export function MiniCart({ isOpen, onClose }: MiniCartProps) {
   const { items = [], removeFromCart, total = 0 } = useCart();
+  const navigate = useNavigate();
 
   if (!isOpen) return null;
 
@@ -42,9 +43,13 @@ export function MiniCart({ isOpen, onClose }: MiniCartProps) {
                   <img
                     src={item.image}
                     alt={item.name}
-                    className="w-20 h-20 object-cover rounded"
+                    onClick={() => navigate(`/products/${item.productId}`)}
+                    className="w-20 h-20 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
                   />
-                  <div className="flex-1">
+                  <div
+                    className="flex-1 cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => navigate(`/products/${item.productId}`)}
+                  >
                     <h4 className="text-sm font-medium mb-1 line-clamp-2">
                       {item.name}
                     </h4>

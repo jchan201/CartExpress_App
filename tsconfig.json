@@ -3,7 +3,7 @@
     "target": "esnext",
     "module": "esnext",
     "moduleResolution": "node",
-    "lib": ["dom", "esnext"],
+    "lib": ["dom", "DOM.Iterable", "esnext"],
     "jsx": "react-jsx",
     "noEmit": true, // Bundler (e.g., Vite/Webpack) handles file emission
     "isolatedModules": true,

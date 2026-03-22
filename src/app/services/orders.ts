@@ -66,7 +66,6 @@ export const ordersService = {
     try {
       const response = await apiClient.post<ApiResponse<{ order: Order }>>("/orders", {
         userId: orderData.userId || undefined,
-        sessionId: orderData.sessionId,
         items: orderData.items,
         shippingAddress: orderData.shippingAddress,
         paymentMethod: orderData.paymentMethod,

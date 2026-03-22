@@ -10,7 +10,7 @@ const apiClient: AxiosInstance = axios.create({
   },
 });
 
-// Request interceptor - you can add token here when auth is implemented
+// Request interceptor - add token and session ID to headers
 apiClient.interceptors.request.use(
   (config) => {
     // Add token to headers if available
@@ -18,6 +18,13 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Add session ID to headers if available
+    const sessionId = localStorage.getItem("cartexpress_sessionId");
+    if (sessionId) {
+      config.headers["x-session-id"] = sessionId;
+    }
+
     return config;
   },
   (error) => {
@@ -25,7 +32,7 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor - handle errors globally and store tokens
+// Response interceptor - handle errors globally and store tokens/session ID
 apiClient.interceptors.response.use(
   (response) => {
     // Store token if present in response
@@ -35,6 +42,12 @@ apiClient.interceptors.response.use(
       localStorage.setItem("authToken", token);
       apiClient.defaults.headers.common["Authorization"] = `Bearer ${token}`;
     }
+
+    // Store session ID if returned from backend
+    if (response.data?.sessionId) {
+      localStorage.setItem("cartexpress_sessionId", response.data.sessionId);
+    }
+
     return response;
   },
   (error: AxiosError) => {
@@ -55,6 +68,7 @@ export interface ApiResponse<T> {
   data: T;
   message?: string;
   token?: string;
+  sessionId?: string;
 }
 
 export default apiClient;

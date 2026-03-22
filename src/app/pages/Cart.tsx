@@ -40,10 +40,14 @@ export function Cart() {
               <img
                 src={item.image}
                 alt={item.name}
-                className="w-24 h-24 object-cover rounded"
+                onClick={() => navigate(`/products/${item.productId}`)}
+                className="w-24 h-24 object-cover rounded cursor-pointer hover:opacity-80 transition-opacity"
               />
 
-              <div className="flex-1">
+              <div
+                className="flex-1 cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => navigate(`/products/${item.productId}`)}
+              >
                 <h3 className="text-lg mb-2">{item.name}</h3>
                 <p className="text-blue-600 mb-4">
                   ${item.price.toFixed(2)}
@@ -52,14 +56,20 @@ export function Cart() {
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2 border border-gray-300 rounded">
                     <button
-                      onClick={() => updateQuantity(item.sku, item.quantity - 1)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        updateQuantity(item.sku, item.quantity - 1);
+                      }}
                       className="p-2 hover:bg-gray-100"
                     >
                       <Minus className="w-4 h-4" />
                     </button>
                     <span className="px-3">{item.quantity}</span>
                     <button
-                      onClick={() => updateQuantity(item.sku, item.quantity + 1)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        updateQuantity(item.sku, item.quantity + 1);
+                      }}
                       className="p-2 hover:bg-gray-100"
                     >
                       <Plus className="w-4 h-4" />
@@ -67,7 +77,10 @@ export function Cart() {
                   </div>
 
                   <button
-                    onClick={() => removeFromCart(item.sku)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeFromCart(item.sku);
+                    }}
                     className="p-2 text-red-600 hover:bg-red-50 rounded"
                   >
                     <Trash2 className="w-5 h-5" />

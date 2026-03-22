@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { ordersService } from "@/app/services/orders";
 import { useAuth } from "./AuthContext";
-import { getOrCreateSessionId } from "@/app/utilities/sessionId";
 
 export interface OrderItem {
   id: string;
@@ -94,7 +93,6 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       // Call backend API to create order
       const createdOrder = await ordersService.createOrder({
         userId: user?._id || null,
-        sessionId: getOrCreateSessionId(),
         items: apiOrderItems,
         shippingAddress: orderData.shippingAddress,
         paymentMethod: orderData.paymentMethod || "card",

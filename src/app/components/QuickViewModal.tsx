@@ -1,6 +1,6 @@
 import { Product } from "@/app/services/products";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
-import { Star, ShoppingCart, Heart, X } from "lucide-react";
+import { Star, ShoppingCart, Heart } from "lucide-react";
 import { useCart } from "@/app/context/CartContext";
 import { useWishlist } from "@/app/context/WishlistContext";
 import { toast } from "sonner";
@@ -14,10 +14,16 @@ interface QuickViewModalProps {
 }
 
 export function QuickViewModal({ product, open, onClose }: QuickViewModalProps) {
-  const { addToCart } = useCart();
+  const { addToCart, items } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
 
   if (!product) return null;
+
+  const checkQtyInCart = () => {
+    const cartItem = items.find((item) => item.sku === product.sku);
+    const cartQuantity = cartItem ? cartItem.quantity : 0;
+    return product.stockQuantity - cartQuantity > 0;
+  }
 
   const handleAddToCart = () => {
     addToCart({
@@ -121,11 +127,11 @@ export function QuickViewModal({ product, open, onClose }: QuickViewModalProps) 
             <div className="flex gap-3 mt-auto">
               <button
                 onClick={handleAddToCart}
-                disabled={product.stockQuantity === 0}
+                disabled={product.stockQuantity === 0 || !checkQtyInCart()}
                 className="flex-1 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 <ShoppingCart className="w-5 h-5" />
-                Add to Cart
+                {checkQtyInCart() ? "Add to Cart" : "Max Quantity in Cart Reached"}
               </button>
               <button
                 onClick={handleToggleWishlist}
