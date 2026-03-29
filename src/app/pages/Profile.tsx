@@ -132,11 +132,11 @@ export function Profile() {
                 </p>
                 <div className="space-y-2">
                   {orders.slice(0, 3).map((order) => (
-                    <div key={order.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div key={order._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div>
-                        <p className="text-sm font-medium">{order.id}</p>
+                        <p className="text-sm font-medium">{order.orderNumber}</p>
                         <p className="text-xs text-gray-600">
-                          {new Date(order.orderDate).toLocaleDateString()}
+                          {new Date(order.createdAt).toLocaleDateString()}
                         </p>
                       </div>
                       <div className="text-right">

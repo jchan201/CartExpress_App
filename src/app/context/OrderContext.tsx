@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { ordersService } from "@/app/services/orders";
+import { CreateOrderPayload, Order, ordersService } from "@/app/services/orders";
 import { useAuth } from "./AuthContext";
 
 export interface OrderItem {
@@ -10,23 +10,11 @@ export interface OrderItem {
   image: string;
 }
 
-export interface Order {
-  id: string;
-  items: OrderItem[];
-  total: number;
-  tax?: number;
-  status: "processing" | "shipped" | "delivered" | "cancelled";
-  orderDate: string;
-  deliveryDate?: string;
-  shippingAddress: string;
-  paymentMethod?: string;
-}
-
 interface OrderContextType {
   orders: Order[];
   isLoading: boolean;
   error: string | null;
-  addOrder: (order: Omit<Order, "id" | "orderDate" | "status">) => Promise<void>;
+  addOrder: (orderData: CreateOrderPayload) => Promise<Order>;
 }
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
@@ -43,25 +31,8 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       if (user?._id) {
         setIsLoading(true);
         try {
-          const userOrders = await ordersService.getUserOrders(user._id);
-          setOrders(
-            userOrders.map((order) => ({
-              id: order._id || "",
-              items: order.items.map((item) => ({
-                id: item.productId,
-                name: item.name,
-                price: item.price,
-                quantity: item.quantity,
-                image: "",
-              })),
-              total: order.total,
-              tax: order.tax,
-              status: (order.status as "processing" | "shipped" | "delivered" | "cancelled") || "processing",
-              orderDate: order.createdAt || new Date().toISOString(),
-              shippingAddress: order.shippingAddress,
-              paymentMethod: order.paymentMethod,
-            }))
-          );
+          const result = await ordersService.getUserOrders();
+          setOrders(result.orders);
           setError(null);
         } catch (err) {
           const errorMsg = err instanceof Error ? err.message : "Failed to fetch orders";
@@ -76,42 +47,19 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     fetchUserOrders();
   }, [user?._id]);
 
-  const addOrder = async (orderData: Omit<Order, "id" | "orderDate" | "status">) => {
+  const addOrder = async (orderData: CreateOrderPayload): Promise<Order> => {
     setIsLoading(true);
     setError(null);
     try {
-      // Prepare order items for API
-      const apiOrderItems = orderData.items.map((item) => ({
-        productId: item.id,
-        quantity: item.quantity,
-        price: item.price,
-        name: item.name,
-      }));
-
-      const tax = orderData.tax || (orderData.total * 0.1);
-
-      // Call backend API to create order
+      // Call backend API to create order (cart items are pulled from backend cart)
       const createdOrder = await ordersService.createOrder({
-        userId: user?._id || null,
-        items: apiOrderItems,
         shippingAddress: orderData.shippingAddress,
         paymentMethod: orderData.paymentMethod || "card",
-        tax: tax,
       });
 
       // Add order to local state
-      const newOrder: Order = {
-        id: createdOrder._id || `ORD-${Date.now()}`,
-        items: orderData.items,
-        total: createdOrder.total,
-        tax: createdOrder.tax,
-        status: (createdOrder.status as "processing" | "shipped" | "delivered" | "cancelled") || "processing",
-        orderDate: createdOrder.createdAt || new Date().toISOString(),
-        shippingAddress: createdOrder.shippingAddress,
-        paymentMethod: createdOrder.paymentMethod,
-      };
-
-      setOrders((prev) => [newOrder, ...prev]);
+      setOrders((prev) => [createdOrder, ...prev]);
+      return createdOrder;
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Failed to create order";
       setError(errorMsg);

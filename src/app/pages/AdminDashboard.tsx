@@ -50,8 +50,8 @@ export function AdminDashboard() {
 
   const loadOrders = async () => {
     try {
-      const allOrders = await ordersService.getAllOrders();
-      setOrders(allOrders);
+      const result = await ordersService.getAllOrders();
+      setOrders(result.orders);
     } catch (err) {
       console.error("Failed to load orders:", err);
     }

@@ -1,6 +1,7 @@
 import { useOrders } from "@/app/context/OrderContext";
 import { Package, Truck, CheckCircle, XCircle } from "lucide-react";
 import { Link } from "react-router";
+import { Address } from "../services/orders";
 
 export function OrderHistory() {
   const { orders } = useOrders();
@@ -44,6 +45,17 @@ export function OrderHistory() {
     });
   };
 
+  const formatAddress = (address: Address) => {
+    let parts = [];
+    if (address.fullName) parts.push(address.fullName);
+    if (address.addressLine1) parts.push(address.addressLine1);
+    if (address.city) parts.push(address.city);
+    if (address.state) parts.push(address.state);
+    if (address.postalCode) parts.push(address.postalCode);
+    if (address.country) parts.push(address.country);
+    return parts.join(", ");
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <h1 className="text-3xl mb-8">Order History</h1>
@@ -66,7 +78,7 @@ export function OrderHistory() {
         <div className="space-y-6">
           {orders.map((order) => (
             <div
-              key={order.id}
+              key={order._id}
               className="bg-white rounded-lg shadow-sm border overflow-hidden"
             >
               {/* Order Header */}
@@ -74,11 +86,11 @@ export function OrderHistory() {
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
                     <p className="text-sm text-gray-600">Order Number</p>
-                    <p className="font-semibold">{order.id}</p>
+                    <p className="font-semibold">{order.orderNumber}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Order Date</p>
-                    <p className="font-semibold">{formatDate(order.orderDate)}</p>
+                    <p className="font-semibold">{formatDate(order.createdAt)}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Total</p>
@@ -105,7 +117,7 @@ export function OrderHistory() {
                 <h3 className="font-semibold mb-3">Items</h3>
                 <div className="space-y-3">
                   {order.items.map((item) => (
-                    <div key={item.id} className="flex gap-4">
+                    <div key={item.sku} className="flex gap-4">
                       <img
                         src={item.image}
                         alt={item.name}
@@ -132,7 +144,7 @@ export function OrderHistory() {
                 {/* Shipping Address */}
                 <div className="mt-4 pt-4 border-t">
                   <p className="text-sm text-gray-600 mb-1">Shipping Address</p>
-                  <p className="text-sm">{order.shippingAddress}</p>
+                  <p className="text-sm">{formatAddress(order.shippingAddress)}</p>
                 </div>
               </div>
             </div>
