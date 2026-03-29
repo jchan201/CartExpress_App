@@ -1,14 +1,14 @@
 import apiClient, { ApiResponse } from "./api";
 
 export interface CartItem {
-  _id?: string; // MongoDB document ID
+  _id: string; // MongoDB document ID for backend sync
   productId: string;
   variantId?: string;
+  sku: string;
+  name: string;
+  price: number;
   quantity: number;
-  name?: string;
-  price?: number;
-  image?: string;
-  sku?: string;
+  image: string;
 }
 
 export interface Cart {

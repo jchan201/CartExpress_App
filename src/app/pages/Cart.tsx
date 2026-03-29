@@ -1,10 +1,28 @@
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Trash2, Plus, Minus } from "lucide-react";
 import { useCart } from "@/app/context/CartContext";
+import { CartItem } from "../services/cart";
+import { Product, productsService } from "../services/products";
 
 export function Cart() {
+  const [products, setProducts] = useState<Product[]>([]);
   const { items, removeFromCart, updateQuantity, total } = useCart();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const result = await productsService.getProducts();
+        const productList = result.products;
+        setProducts(productList);
+      } catch (err) {
+        console.error("Failed to fetch products for cart:", err);
+      }
+    };
+
+    fetchProducts();
+  }, []);
 
   if (items.length === 0) {
     return (
@@ -24,6 +42,16 @@ export function Cart() {
       </div>
     );
   }
+
+  const canDecrementQuantity = (item: CartItem) => {
+    const cartQuantity = item ? item.quantity : 0;
+    return cartQuantity > 1;
+  };
+  const canIncrementQuantity = (item: CartItem) => {
+    const cartQuantity = item ? item.quantity : 0;
+    const foundItem = products.find((product) => product._id === item.productId);
+    return foundItem ? foundItem.stockQuantity - cartQuantity > 0 : false;
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -54,34 +82,35 @@ export function Cart() {
                 </p>
 
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 border border-gray-300 rounded">
+                  <div className="flex items-center gap-2 border border-gray-300 rounded hover:cursor-default" onClick={(e) => {
+                    e.stopPropagation();
+                  }}>
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        updateQuantity(item.sku, item.quantity - 1);
+                      onClick={() => {
+                        updateQuantity(item._id, item.quantity - 1);
                       }}
-                      className="p-2 hover:bg-gray-100"
+                      className="p-2 hover:bg-gray-100 disabled:opacity-50"
+                      disabled={!canDecrementQuantity(item)}
                     >
                       <Minus className="w-4 h-4" />
                     </button>
-                    <span className="px-3">{item.quantity}</span>
+                    <span className="px-3 hover:cursor-default">{item.quantity}</span>
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        updateQuantity(item.sku, item.quantity + 1);
+                      onClick={() => {
+                        updateQuantity(item._id, item.quantity + 1);
                       }}
-                      className="p-2 hover:bg-gray-100"
+                      className="p-2 hover:bg-gray-100 disabled:opacity-50"
+                      disabled={!canIncrementQuantity(item)}
                     >
                       <Plus className="w-4 h-4" />
                     </button>
                   </div>
 
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeFromCart(item.sku);
+                    onClick={() => {
+                      removeFromCart(item._id);
                     }}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded"
+                    className="p-2 text-red-600 hover:bg-red-50 rounded disabled:opacity-50"
                   >
                     <Trash2 className="w-5 h-5" />
                   </button>

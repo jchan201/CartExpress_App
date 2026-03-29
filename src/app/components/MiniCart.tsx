@@ -61,7 +61,7 @@ export function MiniCart({ isOpen, onClose }: MiniCartProps) {
                     </p>
                   </div>
                   <button
-                    onClick={() => removeFromCart(item.sku)}
+                    onClick={() => removeFromCart(item._id)}
                     className="text-gray-400 hover:text-red-500 h-fit"
                     aria-label="Remove item"
                   >

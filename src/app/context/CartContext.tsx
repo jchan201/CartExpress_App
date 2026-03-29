@@ -1,17 +1,6 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
-import { cartService } from "@/app/services/cart";
+import { cartService, CartItem } from "@/app/services/cart";
 import { authService } from "@/app/services/auth";
-
-export interface CartItem {
-  _id?: string; // MongoDB document ID for backend sync
-  productId: string;
-  variantId?: string;
-  sku: string;
-  name: string;
-  price: number;
-  quantity: number;
-  image: string;
-}
 
 interface CartContextType {
   items: CartItem[];
@@ -115,14 +104,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
       });
   };
 
-  const removeFromCart = (sku: string) => {
-    const item = items.find((i) => i.sku === sku);
+  const removeFromCart = (id: string) => {
+    const item = items.find((i) => i._id === id);
     if (!item?._id) {
       console.error("Cannot remove item without _id");
       return;
     }
 
-    setItems((prev) => prev.filter((i) => i.sku !== sku));
+    setItems((prev) => prev.filter((i) => i._id !== id));
 
     // Sync with backend
     cartService.removeFromCart(item._id).catch((err) => {
@@ -130,20 +119,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const updateQuantity = (sku: string, quantity: number) => {
+  const updateQuantity = (id: string, quantity: number) => {
     if (quantity <= 0) {
-      removeFromCart(sku);
+      removeFromCart(id);
       return;
     }
 
-    const item = items.find((i) => i.sku === sku);
+    const item = items.find((i) => i._id === id);
     if (!item?._id) {
       console.error("Cannot update item without _id");
       return;
     }
 
     setItems((prev) =>
-      prev.map((i) => (i.sku === sku ? { ...i, quantity } : i))
+      prev.map((i) => (i._id === id ? { ...i, quantity } : i))
     );
 
     // Sync with backend
