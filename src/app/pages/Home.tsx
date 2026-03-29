@@ -16,9 +16,7 @@ export function Home() {
         const result = await productsService.getProducts({
           limit: 4,
         });
-
-        // Handle both array and object responses
-        const productList = Array.isArray(result) ? result : result.products;
+        const productList = result.products;
 
         // Get top 4 by rating
         const featured = productList

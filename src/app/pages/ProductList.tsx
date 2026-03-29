@@ -38,9 +38,7 @@ export function ProductList() {
           limit: 100, // Adjust as needed
           page: 1,
         });
-
-        // Handle both array and object responses
-        const productList = Array.isArray(result) ? result : result.products;
+        const productList = result.products;
         setProducts(productList);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Failed to load products";
