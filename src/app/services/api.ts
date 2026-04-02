@@ -63,7 +63,7 @@ apiClient.interceptors.response.use(
   }
 );
 
-export interface ApiResponse<T> {
+export interface ApiResponse<T = undefined> {
   success: boolean;
   data: T;
   message?: string;

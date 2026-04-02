@@ -23,11 +23,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const initializeCart = async () => {
       try {
-        // Get user from auth service if logged in
-        const user = authService.getUser();
-        const userId = user?._id;
+        // Ensure token is loaded into API headers and confirm logged-in user
+        authService.initializeAuth();
 
-        // Sync cart from backend
+        let userId: string | undefined;
+        try {
+          const authResponse = await authService.checkLogin();
+          userId = authResponse.user?._id;
+        } catch {
+          userId = authService.getUser()?._id || undefined;
+        }
+
+        // Sync cart from backend using userId if available
         const backendCart = await cartService.getCart(userId);
 
         if (backendCart.items && backendCart.items.length > 0) {
@@ -73,11 +80,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [items]);
 
-  const addToCart = (item: Omit<CartItem, "quantity" | "_id">) => {
+  const addToCart = async (item: Omit<CartItem, "quantity" | "_id">) => {
+    // Determine user id if logged in
+    let userId = authService.getUser()?._id;
+    if (!userId) {
+      try {
+        const authResponse = await authService.checkLogin();
+        userId = authResponse.user?._id;
+      } catch {
+        userId = undefined;
+      }
+    }
+
     // Sync with backend
-    const user = authService.getUser();
     cartService
-      .addToCart(item.productId, 1, user?._id, item.variantId)
+      .addToCart(item.productId, 1, userId, item.variantId)
       .then((response) => {
         // Store the session ID if it's returned (for guest users on first add)
         if (response.sessionId) {

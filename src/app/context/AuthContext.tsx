@@ -18,13 +18,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize auth on app mount - restore user if token exists
+  // Initialize auth on app mount - restore user with checkLogin
   useEffect(() => {
-    authService.initializeAuth();
-    const storedUser = authService.getUser();
-    if (storedUser) {
-      setUser(storedUser);
-    }
+    const initializeAuth = async () => {
+      authService.initializeAuth();
+
+      try {
+        const authResponse = await authService.checkLogin();
+        setUser(authResponse.user);
+      } catch (err) {
+        setUser(null);
+      }
+    };
+
+    initializeAuth();
   }, []);
 
   const login = async (email: string, password: string): Promise<void> => {

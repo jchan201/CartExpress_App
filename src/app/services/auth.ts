@@ -19,6 +19,9 @@ export interface AuthResponse {
   token: string;
   user: User;
 }
+export interface CheckLoginResponse {
+  user: User;
+}
 
 export interface LoginCredentials {
   email: string;
@@ -33,7 +36,7 @@ export interface RegisterCredentials {
 }
 
 const TOKEN_KEY = "authToken";
-const USER_KEY = "authUser";
+let currentUser: User | null = null;
 
 /**
  * Store authentication token in localStorage and update API headers
@@ -56,13 +59,36 @@ export const authService = {
       const token = response.data.token;
       const data = response.data.data;
 
-      // Store token and user
-      if (token) storeAuthToken(token);
-      localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+      if (token) {
+        storeAuthToken(token);
+      }
 
+      currentUser = data.user;
       return data;
     } catch (error) {
       console.error("Login failed:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Check login status
+   */
+  checkLogin: async (): Promise<CheckLoginResponse> => {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!token) return Promise.reject(new Error("No authentication token found"));
+    try {
+      const response = await apiClient.post<ApiResponse<CheckLoginResponse>>(
+        "/auth/check-login",
+        { token }
+      );
+      const data = response.data.data;
+
+      currentUser = data.user;
+      return data;
+    } catch (error) {
+      console.error("Failed to check login status:", error);
+      currentUser = null;
       throw error;
     }
   },
@@ -78,9 +104,8 @@ export const authService = {
       );
       const data = response.data.data;
 
-      // Store token and user
       storeAuthToken(data.token);
-      localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+      currentUser = data.user;
 
       return data;
     } catch (error) {
@@ -94,7 +119,7 @@ export const authService = {
    */
   logout: (): void => {
     localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
+    currentUser = null;
     delete apiClient.defaults.headers.common["Authorization"];
   },
 
@@ -106,17 +131,10 @@ export const authService = {
   },
 
   /**
-   * Get stored user
+   * Get current user from memory
    */
   getUser: (): User | null => {
-    const userStr = localStorage.getItem(USER_KEY);
-    if (!userStr) return null;
-
-    try {
-      return JSON.parse(userStr);
-    } catch {
-      return null;
-    }
+    return currentUser;
   },
 
   /**
