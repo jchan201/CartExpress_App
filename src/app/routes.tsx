@@ -11,6 +11,7 @@ import { Profile } from "@/app/pages/Profile";
 import { AdminDashboard } from "@/app/pages/AdminDashboard";
 import { Wishlist } from "@/app/pages/Wishlist";
 import { OrderHistory } from "@/app/pages/OrderHistory";
+import { PaymentConfirmation } from "@/app/pages/PaymentConfirmation";
 import { ProductComparison } from "@/app/pages/ProductComparison";
 import { NotFound } from "@/app/pages/NotFound";
 
@@ -30,6 +31,7 @@ export const router = createBrowserRouter([
       { path: "admin", Component: AdminDashboard },
       { path: "wishlist", Component: Wishlist },
       { path: "orders", Component: OrderHistory },
+      { path: "payment-confirmation", Component: PaymentConfirmation },
       { path: "compare", Component: ProductComparison },
       { path: "*", Component: NotFound },
     ],

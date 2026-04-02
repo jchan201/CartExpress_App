@@ -1,81 +1,95 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { loadStripe, StripeElementsOptions } from "@stripe/stripe-js";
 import { useCart } from "@/app/context/CartContext";
 import { useAuth } from "@/app/context/AuthContext";
-import { useOrders } from "@/app/context/OrderContext";
+import { paymentsService } from "@/app/services/payments";
 import { toast } from "sonner";
 import { Toaster } from "sonner";
 
-export function Checkout() {
-  const { items, total, clearCart } = useCart();
+// Make sure to call `loadStripe` outside of a component's render to avoid
+// recreating the `Stripe` object on every render.
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+const CHECKOUT_DATA_KEY = "cartexpress_checkout_data";
+
+// Inner component that uses Stripe hooks
+function CheckoutForm({ items, total }: { items: any[]; total: number }) {
+  const { clearCart } = useCart();
   const { user } = useAuth();
-  const { addOrder } = useOrders();
-  const navigate = useNavigate();
+  const stripe = useStripe();
+  const elements = useElements();
 
   const [formData, setFormData] = useState({
-    fullName: user?.firstName && user?.lastName ? `${user?.firstName} ${user?.lastName}` : "",
+    fullName: user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : "",
     email: user?.email || "",
     address: "",
     city: "",
-    zipCode: "",
+    postalCode: "",
     cardNumber: "",
     expiry: "",
     cvv: "",
   });
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (items.length === 0) {
-      navigate("/cart");
-    }
-  }, [items.length, navigate]);
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
-      // Create order
-      const shippingAddress = `${formData.address}, ${formData.city}, ${formData.zipCode}`;
-      const tax = total * 0.1;
+      if (!stripe || !elements) {
+        // Stripe.js has not yet loaded.
+        return;
+      }
 
-      await addOrder({
-        items: items.map(item => ({
-          id: item.productId,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-          image: item.image,
-        })),
-        total: total + tax,
-        tax,
-        shippingAddress,
+      // Save checkout data to localStorage before redirecting to payment
+      const checkoutData = {
+        shippingAddress: {
+          fullName: formData.fullName,
+          addressLine1: formData.address,
+          city: formData.city,
+          postalCode: formData.postalCode,
+        },
+        billingAddress: {
+          fullName: formData.fullName,
+          addressLine1: formData.address,
+          city: formData.city,
+          postalCode: formData.postalCode,
+        },
         paymentMethod: "card",
+        customerEmail: formData.email,
+      };
+
+      localStorage.setItem(CHECKOUT_DATA_KEY, JSON.stringify(checkoutData));
+
+      const { error } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          // Return URL where the user is redirected after the payment
+          return_url: `${window.location.origin}/payment-confirmation`,
+        },
       });
+      if (error) throw error;
 
       clearCart();
-      toast.success("Order placed successfully!");
-      setTimeout(() => {
-        navigate("/orders");
-      }, 1500);
+
+      toast.success("Order placed! Payment is processing. ");
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to place order";
-      toast.error(errorMessage);
-      console.error("Order submission error:", error);
+      const message = error instanceof Error ? error.message : "Checkout failed";
+      toast.error(message);
+      console.error("Checkout error:", error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  if (items.length === 0) {
-    return null;
+  if (!items || items.length === 0) {
+    return <p className="p-6">Your cart is empty. Add items before checking out.</p>;
   }
 
   return (
@@ -137,11 +151,11 @@ export function Checkout() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm mb-2">ZIP Code</label>
+                    <label className="block text-sm mb-2">Postal Code / ZIP Code</label>
                     <input
                       type="text"
-                      name="zipCode"
-                      value={formData.zipCode}
+                      name="postalCode"
+                      value={formData.postalCode}
                       onChange={handleChange}
                       required
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -153,46 +167,7 @@ export function Checkout() {
               {/* Payment Information */}
               <div className="bg-white rounded-lg shadow-sm p-6">
                 <h2 className="text-xl mb-4">Payment Information</h2>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm mb-2">Card Number</label>
-                    <input
-                      type="text"
-                      name="cardNumber"
-                      value={formData.cardNumber}
-                      onChange={handleChange}
-                      placeholder="1234 5678 9012 3456"
-                      required
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm mb-2">Expiry Date</label>
-                      <input
-                        type="text"
-                        name="expiry"
-                        value={formData.expiry}
-                        onChange={handleChange}
-                        placeholder="MM/YY"
-                        required
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm mb-2">CVV</label>
-                      <input
-                        type="text"
-                        name="cvv"
-                        value={formData.cvv}
-                        onChange={handleChange}
-                        placeholder="123"
-                        required
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-                </div>
+                <PaymentElement />
               </div>
 
               <button
@@ -232,20 +207,75 @@ export function Checkout() {
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <span>Tax</span>
-                  <span>${(total * 0.1).toFixed(2)}</span>
+                  <span>${(total * 0.13).toFixed(2)}</span>
                 </div>
               </div>
 
               <div className="border-t pt-4">
                 <div className="flex justify-between text-xl">
                   <span>Total</span>
-                  <span>${(total * 1.1).toFixed(2)}</span>
+                  <span>${(total * 1.13).toFixed(2)}</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+    </>
+  );
+}
+
+// Outer component that creates the payment intent and provides Elements context
+export function Checkout() {
+  const { items, total } = useCart();
+  const navigate = useNavigate();
+  const [clientSecret, setClientSecret] = useState<string>("");
+  const [paymentId, setPaymentId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (items.length === 0) {
+      navigate("/cart");
+    }
+  }, [items.length, navigate]);
+
+  useEffect(() => {
+    const createPaymentIntent = async () => {
+      try {
+        const { clientSecret, paymentId } = await paymentsService.createPaymentIntent(items);
+        setClientSecret(clientSecret);
+        setPaymentId(paymentId);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to initialize payment";
+        toast.error(message);
+        console.error("Payment intent creation error:", error);
+      }
+    };
+
+    if (items.length > 0) {
+      createPaymentIntent();
+    }
+  }, [items]);
+
+  if (!items || items.length === 0) {
+    return <p className="p-6">Your cart is empty. Add items before checking out.</p>;
+  }
+
+  const stripeOptions: StripeElementsOptions = {
+    clientSecret,
+  };
+
+  return (
+    <>
+      <Toaster position="top-right" />
+      {clientSecret ? (
+        <Elements stripe={stripePromise} options={stripeOptions}>
+          <CheckoutForm items={items} total={total} />
+        </Elements>
+      ) : (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <p className="text-center">Loading payment details...</p>
+        </div>
+      )}
     </>
   );
 }

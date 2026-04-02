@@ -52,10 +52,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       // Call backend API to create order (cart items are pulled from backend cart)
-      const createdOrder = await ordersService.createOrder({
-        shippingAddress: orderData.shippingAddress,
-        paymentMethod: orderData.paymentMethod || "card",
-      });
+      const createdOrder = await ordersService.createOrder(orderData);
 
       // Add order to local state
       setOrders((prev) => [createdOrder, ...prev]);

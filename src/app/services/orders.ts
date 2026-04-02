@@ -75,6 +75,7 @@ export interface CreateOrderPayload {
   couponCode?: string;
   items?: CartItem[]; // Optional - backend can pull from cart if not provided
   tax?: number; // Optional - backend can calculate tax if not provided
+  stripePaymentIntentId: string;
 }
 
 export const ordersService = {
@@ -142,15 +143,15 @@ export const ordersService = {
 
   /**
    * Get all orders (admin only, with pagination and status filter)
-   * GET /api/admin/orders
+   * GET /api/orders
    */
-  getAllOrders: async (page: number = 1, limit: number = 20, status?: string): Promise<{ orders: Order[]; total: number; page: number; pages: number }> => {
+  getAllOrders: async (page: number = 1, limit: number = 20, status?: string): Promise<{ orders: Order[] }> => {
     try {
       const params: Record<string, any> = { page, limit };
       if (status) params.status = status;
 
-      const response = await apiClient.get<ApiResponse<{ orders: Order[]; total: number; page: number; pages: number }>>(
-        "/admin/orders",
+      const response = await apiClient.get<ApiResponse<{ orders: Order[] }>>(
+        "/orders",
         { params }
       );
       return response.data.data;
@@ -162,7 +163,7 @@ export const ordersService = {
 
   /**
    * Update order status (admin only)
-   * PUT /api/admin/orders/:id/status
+   * PUT /api/orders/:id/status
    */
   updateOrderStatus: async (
     orderId: string,
@@ -176,7 +177,7 @@ export const ordersService = {
       if (carrier) payload.carrier = carrier;
 
       const response = await apiClient.put<ApiResponse<{ order: Order }>>(
-        `/admin/orders/${orderId}/status`,
+        `/orders/${orderId}/status`,
         payload
       );
       return response.data.data.order;
