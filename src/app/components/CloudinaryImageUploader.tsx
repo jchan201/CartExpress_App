@@ -59,7 +59,6 @@ export function CloudinaryImageUploader({
       // Check if Cloudinary SDK is available
       if (!window.cloudinary) {
         console.error("Cloudinary SDK not loaded. Check if the script is properly included in index.html");
-        console.log("window.cloudinary:", window.cloudinary);
         return;
       }
 
@@ -67,8 +66,6 @@ export function CloudinaryImageUploader({
         console.warn("Upload button ref not available");
         return;
       }
-
-      console.log("Initializing Cloudinary upload widget");
 
       // Create upload widget
       uploadWidgetRef.current = window.cloudinary.createUploadWidget(
@@ -85,7 +82,6 @@ export function CloudinaryImageUploader({
       // Add click event to open widget
       const handleUploadClick = (e: Event) => {
         e.preventDefault();
-        console.log("Opening Cloudinary widget");
         if (uploadWidgetRef.current) {
           uploadWidgetRef.current.open();
         }
@@ -93,7 +89,6 @@ export function CloudinaryImageUploader({
 
       const buttonElement = uploadButtonRef.current;
       buttonElement.addEventListener("click", handleUploadClick);
-      console.log("Upload widget initialized successfully");
 
       // Cleanup
       return () => {
@@ -107,14 +102,10 @@ export function CloudinaryImageUploader({
 
     const checkAndInitialize = () => {
       if (window.cloudinary) {
-        console.log("Cloudinary SDK found, initializing...");
         const cleanup = initializeUploadWidget();
         return cleanup;
       } else if (attempts < maxAttempts) {
         attempts++;
-        if (attempts === 1) {
-          console.log("Waiting for Cloudinary SDK to load...");
-        }
         setTimeout(checkAndInitialize, 100);
       } else {
         console.error("Cloudinary SDK failed to load after waiting 10 seconds");
