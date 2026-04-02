@@ -1,4 +1,4 @@
-import apiClient, { ApiResponse } from "./api";
+import { ApiResponse, dedupedApi } from "./api";
 import { User } from "./auth";
 import { CartItem } from "./cart";
 
@@ -85,7 +85,7 @@ export const ordersService = {
    */
   getUserOrders: async (page: number = 1, limit: number = 10): Promise<{ orders: Order[]; total: number; page: number; pages: number }> => {
     try {
-      const response = await apiClient.get<ApiResponse<{ orders: Order[]; total: number; page: number; pages: number }>>(
+      const response = await dedupedApi.get<ApiResponse<{ orders: Order[]; total: number; page: number; pages: number }>>(
         "/orders",
         { params: { page, limit } }
       );
@@ -102,7 +102,7 @@ export const ordersService = {
    */
   getOrder: async (orderId: string): Promise<Order> => {
     try {
-      const response = await apiClient.get<ApiResponse<{ order: Order }>>(`/orders/${orderId}`);
+      const response = await dedupedApi.get<ApiResponse<{ order: Order }>>(`/orders/${orderId}`);
       return response.data.data.order;
     } catch (error) {
       console.error(`Failed to fetch order ${orderId}:`, error);
@@ -116,7 +116,7 @@ export const ordersService = {
    */
   createOrder: async (orderData: CreateOrderPayload): Promise<Order> => {
     try {
-      const response = await apiClient.post<ApiResponse<{ order: Order }>>("/orders", orderData);
+      const response = await dedupedApi.post<ApiResponse<{ order: Order }>>("/orders", orderData);
       return response.data.data.order;
     } catch (error) {
       console.error("Failed to create order:", error);
@@ -130,7 +130,7 @@ export const ordersService = {
    */
   cancelOrder: async (orderId: string, reason?: string): Promise<Order> => {
     try {
-      const response = await apiClient.put<ApiResponse<{ order: Order }>>(
+      const response = await dedupedApi.put<ApiResponse<{ order: Order }>>(
         `/orders/${orderId}/cancel`,
         { reason }
       );
@@ -150,7 +150,7 @@ export const ordersService = {
       const params: Record<string, any> = { page, limit };
       if (status) params.status = status;
 
-      const response = await apiClient.get<ApiResponse<{ orders: Order[] }>>(
+      const response = await dedupedApi.get<ApiResponse<{ orders: Order[] }>>(
         "/orders",
         { params }
       );
@@ -176,7 +176,7 @@ export const ordersService = {
       if (trackingNumber) payload.trackingNumber = trackingNumber;
       if (carrier) payload.carrier = carrier;
 
-      const response = await apiClient.put<ApiResponse<{ order: Order }>>(
+      const response = await dedupedApi.put<ApiResponse<{ order: Order }>>(
         `/orders/${orderId}/status`,
         payload
       );

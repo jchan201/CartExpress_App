@@ -1,4 +1,4 @@
-import apiClient, { ApiResponse } from "./api";
+import apiClient, { ApiResponse, dedupedApi } from "./api";
 import { CartItem } from "./cart";
 
 export interface CreatePaymentIntentResponse {
@@ -17,7 +17,7 @@ export interface PaymentStatus {
 export const paymentsService = {
   createPaymentIntent: async (items: CartItem[], tax?: number): Promise<CreatePaymentIntentResponse> => {
     try {
-      const response = await apiClient.post<ApiResponse<CreatePaymentIntentResponse>>( 
+      const response = await dedupedApi.post<ApiResponse<CreatePaymentIntentResponse>>( 
         "/payments/create-intent",
         { items, tax }
       );
@@ -31,7 +31,7 @@ export const paymentsService = {
   
   verifyPaymentIntent: async (paymentIntentId: string): Promise<boolean> => {
     try {
-      const response = await apiClient.post<ApiResponse>(
+      const response = await dedupedApi.post<ApiResponse>(
         `/payments/verify-intent`,
         { stripePaymentIntentId: paymentIntentId }
       );
@@ -44,7 +44,7 @@ export const paymentsService = {
 
   getPaymentByOrder: async (orderId: string): Promise<PaymentStatus> => {
     try {
-      const response = await apiClient.get<ApiResponse<{ payment: PaymentStatus }>>(
+      const response = await dedupedApi.get<ApiResponse<{ payment: PaymentStatus }>>(
         `/payments/${orderId}`
       );
       return response.data.data.payment;

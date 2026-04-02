@@ -1,4 +1,4 @@
-import apiClient, { ApiResponse } from "./api";
+import apiClient, { ApiResponse, dedupedApi } from "./api";
 
 export interface Product {
   _id: string;
@@ -10,7 +10,7 @@ export interface Product {
   price: number;
   comparePrice?: number;
   costPrice?: number;
-  categoryId?: string;
+  categoryId?: string | { _id: string; name: string; slug: string };
   images: string[];
   thumbnail?: string;
   stockQuantity: number;
@@ -61,7 +61,7 @@ export const productsService = {
     params?: GetProductsParams
   ): Promise<GetProductsResponse> => {
     try {
-      const response = await apiClient.get<ApiResponse<GetProductsResponse>>(
+      const response = await dedupedApi.get<ApiResponse<GetProductsResponse>>(
         "/products",
         { params }
       );
@@ -77,7 +77,7 @@ export const productsService = {
    */
   getProductById: async (productId: string): Promise<Product> => {
     try {
-      const response = await apiClient.get<ApiResponse<{ product: Product}>>(`/products/${productId}`);
+      const response = await dedupedApi.get<ApiResponse<{ product: Product}>>(`/products/${productId}`);
       return response.data.data.product;
     } catch (error) {
       console.error(`Failed to fetch product ${productId}:`, error);
@@ -90,7 +90,7 @@ export const productsService = {
    */
   createProduct: async (data: Partial<Product>): Promise<Product> => {
     try {
-      const response = await apiClient.post<ApiResponse<{ product: Product }>>("/products", data);
+      const response = await dedupedApi.post<ApiResponse<{ product: Product }>>("/products", data);
       return response.data.data.product;
     } catch (error) {
       console.error("Failed to create product:", error);
@@ -106,7 +106,7 @@ export const productsService = {
     data: Partial<Product>
   ): Promise<Product> => {
     try {
-      const response = await apiClient.put<ApiResponse<{ product: Product }>>(
+      const response = await dedupedApi.put<ApiResponse<{ product: Product }>>(
         `/products/${productId}`,
         data
       );
@@ -122,7 +122,7 @@ export const productsService = {
    */
   deleteProduct: async (productId: string): Promise<void> => {
     try {
-      await apiClient.delete(`/products/${productId}`);
+      await dedupedApi.delete(`/products/${productId}`);
     } catch (error) {
       console.error(`Failed to delete product ${productId}:`, error);
       throw error;

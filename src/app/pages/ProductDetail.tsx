@@ -7,12 +7,13 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Link } from "react-router";
 import { ProductImageGallery } from "@/app/components/ProductImageGallery";
+import { Button } from "@/app/components/ui/button";
 import { productsService, Product } from "@/app/services/products";
 
 export function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { addToCart, items } = useCart();
+  const { addToCart, items, isUpdating } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const { addToRecentlyViewed, recentlyViewed } = useRecentlyViewed();
 
@@ -106,9 +107,9 @@ export function ProductDetail() {
   };
 
   const handleToggleWishlist = () => {
-    const productId = product._id;
-    if (isInWishlist(productId)) {
-      removeFromWishlist(productId);
+    const productSku = product.sku;
+    if (isInWishlist(productSku)) {
+      removeFromWishlist(productSku);
       toast.success("Removed from wishlist");
     } else {
       addToWishlist(product);
@@ -141,7 +142,11 @@ export function ProductDetail() {
 
           {/* Product Info */}
           <div>
-            <span className="text-sm text-gray-500">{product.categoryId || "Uncategorized"}</span>
+            <span className="text-sm text-gray-500">
+              {typeof product.categoryId === "object"
+                ? product.categoryId.name
+                : product.categoryId || "Uncategorized"}
+            </span>
             <h1 className="text-3xl mb-4">{product.name}</h1>
 
             <div className="flex items-center gap-2 mb-4">
@@ -191,17 +196,23 @@ export function ProductDetail() {
             </div>
 
             <div className="flex gap-3">
-              <button
+              <Button
                 onClick={handleAddToCart}
-                disabled={product.stockQuantity === 0 || !checkQtyInCart()}
+                isLoading={isUpdating}
+                globalWait
+                disabled={
+                  product.stockQuantity === 0 ||
+                  !checkQtyInCart()
+                }
                 className="flex-1 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 <ShoppingCart className="w-5 h-5" />
                 {checkQtyInCart() ? "Add to Cart" : "Max Quantity in Cart Reached"}
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleToggleWishlist}
-                className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                variant="outline"
+                className="px-6 py-3"
               >
                 <Heart
                   className={`w-5 h-5 ${
@@ -210,7 +221,7 @@ export function ProductDetail() {
                       : "text-gray-600"
                   }`}
                 />
-              </button>
+              </Button>
             </div>
           </div>
         </div>

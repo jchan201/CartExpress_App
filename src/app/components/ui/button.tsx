@@ -3,6 +3,7 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "./utils";
+import { useApiBusy } from "@/app/context/ApiBusyContext";
 
 const buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
@@ -34,24 +35,61 @@ const buttonVariants = cva(
   },
 );
 
+interface ButtonProps extends React.ComponentProps<"button">, VariantProps<typeof buttonVariants> {
+  asChild?: boolean;
+  isLoading?: boolean;
+  globalWait?: boolean;
+}
+
 function Button({
   className,
   variant,
   size,
   asChild = false,
+  isLoading = false,
+  globalWait = false,
+  onClick,
+  disabled,
   ...props
-}: React.ComponentProps<"button"> &
-  VariantProps<typeof buttonVariants> & {
-    asChild?: boolean;
-  }) {
+}: ButtonProps) {
   const Comp = asChild ? Slot : "button";
+  const [isPending, setIsPending] = React.useState(false);
+  const { isBusy } = useApiBusy();
+
+  const handleClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (disabled || isLoading || isPending) {
+      event.preventDefault();
+      return;
+    }
+
+    if (!onClick) return;
+
+    const result = onClick(event) as any;
+
+    if (result && typeof result.then === "function") {
+      try {
+        setIsPending(true);
+        await result;
+      } finally {
+        setIsPending(false);
+      }
+    }
+  };
 
   return (
     <Comp
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
+      onClick={handleClick}
+      disabled={disabled || isLoading || isPending || (globalWait && isBusy)}
       {...props}
-    />
+    >
+      {isLoading || (globalWait && isBusy) || isPending ? (
+        <span className="opacity-70">Processing...</span>
+      ) : (
+        props.children
+      )}
+    </Comp>
   );
 }
 

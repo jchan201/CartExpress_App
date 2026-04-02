@@ -4,10 +4,11 @@ import { Trash2, Plus, Minus } from "lucide-react";
 import { useCart } from "@/app/context/CartContext";
 import { CartItem } from "../services/cart";
 import { Product, productsService } from "../services/products";
+import { Button } from "@/app/components/ui/button";
 
 export function Cart() {
   const [products, setProducts] = useState<Product[]>([]);
-  const { items, removeFromCart, updateQuantity, total } = useCart();
+  const { items, removeFromCart, updateQuantity, total, isUpdating } = useCart();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -85,35 +86,36 @@ export function Cart() {
                   <div className="flex items-center gap-2 border border-gray-300 rounded hover:cursor-default" onClick={(e) => {
                     e.stopPropagation();
                   }}>
-                    <button
-                      onClick={() => {
-                        updateQuantity(item._id, item.quantity - 1);
-                      }}
+                    <Button
+                      onClick={() => updateQuantity(item._id, item.quantity - 1)}
                       className="p-2 hover:bg-gray-100 disabled:opacity-50"
                       disabled={!canDecrementQuantity(item)}
+                      variant="ghost"
+                      size="sm"
                     >
                       <Minus className="w-4 h-4" />
-                    </button>
+                    </Button>
                     <span className="px-3 hover:cursor-default">{item.quantity}</span>
-                    <button
-                      onClick={() => {
-                        updateQuantity(item._id, item.quantity + 1);
-                      }}
+                    <Button
+                      onClick={() => updateQuantity(item._id, item.quantity + 1)}
                       className="p-2 hover:bg-gray-100 disabled:opacity-50"
                       disabled={!canIncrementQuantity(item)}
+                      variant="ghost"
+                      size="sm"
                     >
                       <Plus className="w-4 h-4" />
-                    </button>
+                    </Button>
                   </div>
 
-                  <button
-                    onClick={() => {
-                      removeFromCart(item._id);
-                    }}
+                  <Button
+                    onClick={() => removeFromCart(item._id)}
                     className="p-2 text-red-600 hover:bg-red-50 rounded disabled:opacity-50"
+                    disabled={isUpdating}
+                    variant="outline"
+                    size="sm"
                   >
                     <Trash2 className="w-5 h-5" />
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -153,12 +155,14 @@ export function Cart() {
               </div>
             </div>
 
-            <button
+            <Button
               onClick={() => navigate("/checkout")}
               className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              globalWait
+              isLoading={isUpdating}
             >
               Proceed to Checkout
-            </button>
+            </Button>
           </div>
         </div>
       </div>

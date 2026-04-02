@@ -52,7 +52,18 @@ export function ProductList() {
     fetchProducts();
   }, []);
 
-  const categories = ["All", ...Array.from(new Set(products.map((p) => p.categoryId || "Other")))];
+  const categories = [
+    "All",
+    ...Array.from(
+      new Set(
+        products.map((p) =>
+          typeof p.categoryId === "object"
+            ? p.categoryId.name
+            : p.categoryId || "Other"
+        )
+      )
+    ),
+  ];
 
   // Calculate min and max prices from products
   const minPrice = products.length > 0 ? Math.min(...products.map((p) => p.price)) : 0;
@@ -72,8 +83,13 @@ export function ProductList() {
 
   const filteredProducts = products.filter((product) => {
     // Apply category filter
+    const productCategory =
+      typeof product.categoryId === "object"
+        ? product.categoryId.name
+        : product.categoryId || "Other";
+
     const categoryMatch =
-      selectedCategory === "All" || product.categoryId === selectedCategory;
+      selectedCategory === "All" || productCategory === selectedCategory;
 
     // Apply search filter
     const searchMatch =

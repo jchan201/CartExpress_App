@@ -1,14 +1,15 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import { createContext, useContext, useState, ReactNode, useEffect, useRef } from "react";
 import { cartService, CartItem } from "@/app/services/cart";
 import { authService } from "@/app/services/auth";
 
 interface CartContextType {
   items: CartItem[];
   sessionId: string;
-  addToCart: (item: Omit<CartItem, "quantity" | "_id">) => void;
-  removeFromCart: (id: string) => void;
-  updateQuantity: (id: string, quantity: number) => void;
-  clearCart: () => void;
+  isUpdating: boolean;
+  addToCart: (item: Omit<CartItem, "quantity" | "_id">) => Promise<void>;
+  removeFromCart: (id: string) => Promise<void>;
+  updateQuantity: (id: string, quantity: number) => Promise<void>;
+  clearCart: () => Promise<void>;
   total: number;
 }
 
@@ -18,6 +19,15 @@ const CART_STORAGE_KEY = "cartexpress_cart";
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [sessionId, setSessionId] = useState<string>("");
+  const [isUpdating, setIsUpdating] = useState<boolean>(false);
+  const apiCallCounter = useRef(0);
+  const updateTimers = useRef<Record<string, ReturnType<typeof setTimeout> | null>>({});
+
+  const markApiBusy = (busy: boolean) => {
+    apiCallCounter.current += busy ? 1 : -1;
+    if (apiCallCounter.current < 0) apiCallCounter.current = 0;
+    setIsUpdating(apiCallCounter.current > 0);
+  };
 
   // Initialize cart from backend or localStorage on mount
   useEffect(() => {
@@ -81,6 +91,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [items]);
 
   const addToCart = async (item: Omit<CartItem, "quantity" | "_id">) => {
+    markApiBusy(true);
+
     // Determine user id if logged in
     let userId = authService.getUser()?._id;
     if (!userId) {
@@ -92,53 +104,62 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // Sync with backend
-    cartService
-      .addToCart(item.productId, 1, userId, item.variantId)
-      .then((response) => {
-        // Store the session ID if it's returned (for guest users on first add)
-        if (response.sessionId) {
-          setSessionId(response.sessionId);
-          localStorage.setItem("cartexpress_sessionId", response.sessionId);
-        }
-        // Update items with their MongoDB IDs from the response
-        if (response.cart?.items) {
-          const transformedItems: CartItem[] = response.cart.items.map((item) => ({
-            _id: item._id,
-            productId: item.productId,
-            variantId: item.variantId || "",
-            sku: item.sku || item.variantId || item.productId,
-            name: item.name || "",
-            price: item.price || 0,
-            quantity: item.quantity,
-            image: item.image || "",
-          }));
-          setItems(transformedItems);
-        }
-      })
-      .catch((err) => {
-        console.error("Failed to sync add to cart with backend:", err);
-      });
+    try {
+      const response = await cartService.addToCart(item.productId, 1, userId, item.variantId);
+
+      // Store the session ID if it's returned (for guest users on first add)
+      if (response.sessionId) {
+        setSessionId(response.sessionId);
+        localStorage.setItem("cartexpress_sessionId", response.sessionId);
+      }
+
+      // Update items with their MongoDB IDs from the response
+      if (response.cart?.items) {
+        const transformedItems: CartItem[] = response.cart.items.map((item) => ({
+          _id: item._id,
+          productId: item.productId,
+          variantId: item.variantId || "",
+          sku: item.sku || item.variantId || item.productId,
+          name: item.name || "",
+          price: item.price || 0,
+          quantity: item.quantity,
+          image: item.image || "",
+        }));
+        setItems(transformedItems);
+      }
+    } catch (err) {
+      console.error("Failed to sync add to cart with backend:", err);
+      throw err;
+    } finally {
+      markApiBusy(false);
+    }
   };
 
-  const removeFromCart = (id: string) => {
+  const removeFromCart = async (id: string) => {
     const item = items.find((i) => i._id === id);
     if (!item?._id) {
       console.error("Cannot remove item without _id");
       return;
     }
 
+    markApiBusy(true);
+
     setItems((prev) => prev.filter((i) => i._id !== id));
 
     // Sync with backend
-    cartService.removeFromCart(item._id).catch((err) => {
+    try {
+      await cartService.removeFromCart(item._id);
+    } catch (err) {
       console.error("Failed to sync remove from cart with backend:", err);
-    });
+      throw err;
+    } finally {
+      markApiBusy(false);
+    }
   };
 
-  const updateQuantity = (id: string, quantity: number) => {
+  const updateQuantity = async (id: string, quantity: number) => {
     if (quantity <= 0) {
-      removeFromCart(id);
+      await removeFromCart(id);
       return;
     }
 
@@ -148,23 +169,42 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // Immediate UI update
     setItems((prev) =>
       prev.map((i) => (i._id === id ? { ...i, quantity } : i))
     );
 
-    // Sync with backend
-    cartService.updateQuantity(item._id, quantity).catch((err) => {
-      console.error("Failed to sync quantity update with backend:", err);
-    });
+    // Debounced backend sync (avoids round-trip per click)
+    if (updateTimers.current[id]) {
+      clearTimeout(updateTimers.current[id]!);
+    }
+
+    updateTimers.current[id] = setTimeout(async () => {
+      updateTimers.current[id] = null;
+      markApiBusy(true);
+      try {
+        await cartService.updateQuantity(item._id, quantity);
+      } catch (err) {
+        console.error("Failed to sync quantity update with backend:", err);
+      } finally {
+        markApiBusy(false);
+      }
+    }, 400);
   };
 
-  const clearCart = () => {
+  const clearCart = async () => {
+    markApiBusy(true);
     setItems([]);
 
     // Sync with backend
-    cartService.clearCart().catch((err) => {
+    try {
+      await cartService.clearCart();
+    } catch (err) {
       console.error("Failed to sync clear cart with backend:", err);
-    });
+      throw err;
+    } finally {
+      markApiBusy(false);
+    }
   };
 
   const total = items.reduce(
@@ -174,7 +214,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   return (
     <CartContext.Provider
-      value={{ items, sessionId, addToCart, removeFromCart, updateQuantity, clearCart, total }}
+      value={{ items, sessionId, isUpdating, addToCart, removeFromCart, updateQuantity, clearCart, total }}
     >
       {children}
     </CartContext.Provider>

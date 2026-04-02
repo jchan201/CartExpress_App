@@ -7,6 +7,7 @@ import { useAuth } from "@/app/context/AuthContext";
 import { paymentsService } from "@/app/services/payments";
 import { toast } from "sonner";
 import { Toaster } from "sonner";
+import { Button } from "@/app/components/ui/button";
 
 // Make sure to call `loadStripe` outside of a component's render to avoid
 // recreating the `Stripe` object on every render.
@@ -170,13 +171,14 @@ function CheckoutForm({ items, total }: { items: any[]; total: number }) {
                 <PaymentElement />
               </div>
 
-              <button
+              <Button
                 type="submit"
-                disabled={isSubmitting}
+                isLoading={isSubmitting}
+                globalWait
                 className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? "Placing Order..." : "Place Order"}
-              </button>
+              </Button>
             </form>
           </div>
 

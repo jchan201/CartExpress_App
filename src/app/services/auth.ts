@@ -1,4 +1,4 @@
-import apiClient, { ApiResponse } from "./api";
+import apiClient, { ApiResponse, dedupedApi } from "./api";
 
 export interface User {
   _id?: string;
@@ -52,7 +52,7 @@ export const authService = {
    */
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
     try {
-      const response = await apiClient.post<ApiResponse<AuthResponse>>(
+      const response = await dedupedApi.post<ApiResponse<AuthResponse>>(
         "/auth/login",
         credentials
       );
@@ -78,7 +78,7 @@ export const authService = {
     const token = localStorage.getItem(TOKEN_KEY);
     if (!token) return Promise.reject(new Error("No authentication token found"));
     try {
-      const response = await apiClient.post<ApiResponse<CheckLoginResponse>>(
+      const response = await dedupedApi.post<ApiResponse<CheckLoginResponse>>(
         "/auth/check-login",
         { token }
       );
@@ -98,7 +98,7 @@ export const authService = {
    */
   register: async (credentials: RegisterCredentials): Promise<AuthResponse> => {
     try {
-      const response = await apiClient.post<ApiResponse<AuthResponse>>(
+      const response = await dedupedApi.post<ApiResponse<AuthResponse>>(
         "/auth/register",
         credentials
       );

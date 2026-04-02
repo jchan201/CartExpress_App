@@ -4,16 +4,21 @@ import { useAuth } from "@/app/context/AuthContext";
 import { Package, ShoppingBag, Edit, Trash2, Plus, CheckCircle, Truck, AlertCircle } from "lucide-react";
 import { Product, productsService } from "../services/products";
 import { Order, ordersService } from "../services/orders";
+import { Category, categoriesService } from "../services/categories";
 import { CloudinaryImageUploader } from "../components/CloudinaryImageUploader";
+import { Button } from "@/app/components/ui/button";
 
 export function AdminDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<"products" | "orders">("products");
+  const [activeTab, setActiveTab] = useState<"products" | "orders" | "categories">("products");
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [isAddingProduct, setIsAddingProduct] = useState(false);
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [newProduct, setNewProduct] = useState<Partial<Product>>({
     name: "",
@@ -25,6 +30,13 @@ export function AdminDashboard() {
     averageRating: 0,
     totalReviews: 0,
   });
+  const [newCategory, setNewCategory] = useState<Partial<Category>>({
+    name: "",
+    slug: "",
+    description: "",
+    parentCategoryId: null,
+    isActive: true,
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,6 +44,7 @@ export function AdminDashboard() {
   useEffect(() => {
     loadProducts();
     loadOrders();
+    loadCategories();
   }, []);
 
   const loadProducts = async () => {
@@ -54,6 +67,15 @@ export function AdminDashboard() {
       setOrders(result.orders);
     } catch (err) {
       console.error("Failed to load orders:", err);
+    }
+  };
+
+  const loadCategories = async () => {
+    try {
+      const result = await categoriesService.getCategories();
+      setCategories(result.categories);
+    } catch (err) {
+      console.error("Failed to load categories:", err);
     }
   };
 
@@ -109,9 +131,17 @@ export function AdminDashboard() {
     const saveAsync = async () => {
       try {
         if (!updatedProduct._id) return;
-        await productsService.updateProduct(updatedProduct._id, updatedProduct);
+        const payload: Partial<Product> = {
+          ...updatedProduct,
+          categoryId:
+            updatedProduct.categoryId && typeof updatedProduct.categoryId !== "string"
+              ? updatedProduct.categoryId._id
+              : updatedProduct.categoryId,
+        };
+
+        const updated = await productsService.updateProduct(updatedProduct._id, payload);
         setProducts(
-          products.map((p) => (p._id === updatedProduct._id ? updatedProduct : p))
+          products.map((p) => (p._id === updatedProduct._id ? { ...updatedProduct, categoryId: updated.categoryId || updatedProduct.categoryId } : p))
         );
         setEditingProduct(null);
       } catch (err) {
@@ -126,7 +156,14 @@ export function AdminDashboard() {
     e.preventDefault();
     try {
       setError(null);
-      const createdProduct = await productsService.createProduct(newProduct);
+      const payload: Partial<Product> = {
+        ...newProduct,
+        categoryId:
+          newProduct.categoryId && typeof newProduct.categoryId !== "string"
+            ? newProduct.categoryId._id
+            : newProduct.categoryId,
+      };
+      const createdProduct = await productsService.createProduct(payload);
       setProducts([...products, createdProduct]);
       setIsAddingProduct(false);
       setNewProduct({
@@ -145,8 +182,65 @@ export function AdminDashboard() {
     }
   };
 
+  const handleDeleteCategory = (id: string) => {
+    if (confirm("Are you sure you want to deactivate this category?")) {
+      const deleteAsync = async () => {
+        try {
+          await categoriesService.deleteCategory(id);
+          setCategories(categories.filter((c) => c._id !== id));
+        } catch (err) {
+          setError("Failed to deactivate category");
+          console.error(err);
+        }
+      };
+      deleteAsync();
+    }
+  };
+
+  const handleEditCategory = (category: Category) => {
+    setEditingCategory(category);
+  };
+
+  const handleSaveCategory = (updatedCategory: Category) => {
+    const saveAsync = async () => {
+      try {
+        if (!updatedCategory._id) return;
+        const saved = await categoriesService.updateCategory(updatedCategory._id, updatedCategory);
+        setCategories(
+          categories.map((c) => (c._id === updatedCategory._id ? saved : c))
+        );
+        setEditingCategory(null);
+      } catch (err) {
+        setError("Failed to update category");
+        console.error(err);
+      }
+    };
+    saveAsync();
+  };
+
+  const handleAddCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setError(null);
+      const createdCategory = await categoriesService.createCategory(newCategory);
+      setCategories([...categories, createdCategory]);
+      setIsAddingCategory(false);
+      setNewCategory({
+        name: "",
+        slug: "",
+        description: "",
+        parentCategoryId: null,
+        isActive: true,
+      });
+    } catch (err) {
+      setError("Failed to add category");
+      console.error(err);
+    }
+  };
+
   const stats = [
     { label: "Total Products", value: products.length, icon: Package },
+    { label: "Total Categories", value: categories.length, icon: Package },
     { label: "Total Orders", value: orders.length, icon: ShoppingBag },
     {
       label: "Total Revenue",
@@ -196,6 +290,16 @@ export function AdminDashboard() {
         >
           Orders
         </button>
+        <button
+          onClick={() => setActiveTab("categories")}
+          className={`px-4 py-2 border-b-2 transition-colors ${
+            activeTab === "categories"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-600 hover:text-gray-900"
+          }`}
+        >
+          Categories
+        </button>
       </div>
 
       {/* Products Tab */}
@@ -203,12 +307,13 @@ export function AdminDashboard() {
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
           <div className="p-4 border-b flex justify-between items-center">
             <h2 className="text-xl">Manage Products</h2>
-            <button
+            <Button
               onClick={() => setIsAddingProduct(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
               <Plus className="w-5 h-5" />
               Add Product
-            </button>
+            </Button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -244,7 +349,11 @@ export function AdminDashboard() {
                         <span>{product.name}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4">{product.categoryId}</td>
+                    <td className="px-6 py-4">
+                      {typeof product.categoryId === "object"
+                        ? product.categoryId.name
+                        : categories.find((c) => c._id === product.categoryId)?.name || "Uncategorized"}
+                    </td>
                     <td className="px-6 py-4">${product.price.toFixed(2)}</td>
                     <td className="px-6 py-4">{product.stockQuantity}</td>
                     <td className="px-6 py-4">
@@ -271,6 +380,63 @@ export function AdminDashboard() {
         </div>
       )}
 
+      {/* Categories Tab */}
+      {activeTab === "categories" && (
+        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+          <div className="p-4 border-b flex justify-between items-center">
+            <h2 className="text-xl">Manage Categories</h2>
+            <button
+              onClick={() => setIsAddingCategory(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+              <Plus className="w-5 h-5" />
+              Add Category
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-sm text-gray-700">Name</th>
+                  <th className="px-6 py-3 text-left text-sm text-gray-700">Slug</th>
+                  <th className="px-6 py-3 text-left text-sm text-gray-700">Parent</th>
+                  <th className="px-6 py-3 text-left text-sm text-gray-700">Status</th>
+                  <th className="px-6 py-3 text-left text-sm text-gray-700">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {categories.map((category) => {
+                  const parent = categories.find((c) => c._id === category.parentCategoryId);
+                  return (
+                    <tr key={category._id}>
+                      <td className="px-6 py-4">{category.name}</td>
+                      <td className="px-6 py-4">{category.slug}</td>
+                      <td className="px-6 py-4">{parent?.name || "—"}</td>
+                      <td className="px-6 py-4">{category.isActive ? "Active" : "Inactive"}</td>
+                      <td className="px-6 py-4">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleEditCategory(category)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded"
+                          >
+                            <Edit className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteCategory(category._id!)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Orders Tab */}
       {activeTab === "orders" && (
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
@@ -284,7 +450,7 @@ export function AdminDashboard() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-sm text-gray-700">
-                      Order ID
+                      Order Number
                     </th>
                     <th className="px-6 py-3 text-left text-sm text-gray-700">
                       Items
@@ -306,7 +472,7 @@ export function AdminDashboard() {
                 <tbody className="divide-y">
                   {orders.map((order) => (
                     <tr key={order._id}>
-                      <td className="px-6 py-4 text-sm font-medium">{order._id?.slice(-8)}</td>
+                      <td className="px-6 py-4 text-sm font-medium">{order.orderNumber}</td>
                       <td className="px-6 py-4 text-sm">{order.items.length} item(s)</td>
                       <td className="px-6 py-4 text-sm font-semibold">${order.total.toFixed(2)}</td>
                       <td className="px-6 py-4 text-sm">
@@ -362,7 +528,7 @@ export function AdminDashboard() {
       {/* Edit Product Modal */}
       {editingProduct && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+          <div className="bg-white rounded-lg p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto xl:p-8">
             <h2 className="text-xl mb-4">Edit Product</h2>
             <form
               onSubmit={(e) => {
@@ -386,29 +552,169 @@ export function AdminDashboard() {
                 />
               </div>
               <div>
-                <label className="block text-sm mb-2">Price</label>
+                <label className="block text-sm mb-2">Slug</label>
                 <input
-                  type="number"
-                  step="0.01"
-                  value={editingProduct.price}
+                  type="text"
+                  value={editingProduct.slug}
                   onChange={(e) =>
                     setEditingProduct({
                       ...editingProduct,
-                      price: parseFloat(e.target.value),
+                      slug: e.target.value,
                     })
                   }
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
               <div>
-                <label className="block text-sm mb-2">Stock</label>
+                <label className="block text-sm mb-2">SKU</label>
                 <input
-                  type="number"
-                  value={editingProduct.stockQuantity}
+                  type="text"
+                  value={editingProduct.sku}
                   onChange={(e) =>
                     setEditingProduct({
                       ...editingProduct,
-                      stockQuantity: parseInt(e.target.value),
+                      sku: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-2">Category</label>
+                <select
+                  value={(editingProduct.categoryId && typeof editingProduct.categoryId !== "string") ? editingProduct.categoryId._id : editingProduct.categoryId || ""}
+                  onChange={(e) => {
+                    const selected = categories.find((cat) => cat._id === e.target.value);
+                    setEditingProduct({
+                      ...editingProduct,
+                      categoryId: selected || undefined,
+                    });
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                >
+                  <option value="">None</option>
+                  {categories.map((cat) => (
+                    <option key={cat._id} value={cat._id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm mb-2">Description</label>
+                <textarea
+                  value={editingProduct.description || ""}
+                  onChange={(e) =>
+                    setEditingProduct({
+                      ...editingProduct,
+                      description: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm mb-2">Price</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editingProduct.price}
+                    onChange={(e) =>
+                      setEditingProduct({
+                        ...editingProduct,
+                        price: parseFloat(e.target.value),
+                      })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm mb-2">Compare Price</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editingProduct.comparePrice || 0}
+                    onChange={(e) =>
+                      setEditingProduct({
+                        ...editingProduct,
+                        comparePrice: parseFloat(e.target.value),
+                      })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm mb-2">Cost Price</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editingProduct.costPrice || 0}
+                    onChange={(e) =>
+                      setEditingProduct({
+                        ...editingProduct,
+                        costPrice: parseFloat(e.target.value),
+                      })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm mb-2">Stock</label>
+                  <input
+                    type="number"
+                    value={editingProduct.stockQuantity}
+                    onChange={(e) =>
+                      setEditingProduct({
+                        ...editingProduct,
+                        stockQuantity: parseInt(e.target.value),
+                      })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2 mb-4">
+                <input
+                  id="edit-product-active-checkbox"
+                  type="checkbox"
+                  checked={editingProduct.isActive ?? true}
+                  onChange={(e) =>
+                    setEditingProduct({
+                      ...editingProduct,
+                      isActive: e.target.checked,
+                    })
+                  }
+                  className="mr-2"
+                />
+                <label htmlFor="edit-product-active-checkbox" className="text-sm">
+                  Active
+                </label>
+              </div>
+              <div>
+                <label className="block text-sm mb-2">Meta Title</label>
+                <input
+                  type="text"
+                  value={editingProduct.metaTitle || ""}
+                  onChange={(e) =>
+                    setEditingProduct({
+                      ...editingProduct,
+                      metaTitle: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-2">Meta Description</label>
+                <textarea
+                  value={editingProduct.metaDescription || ""}
+                  onChange={(e) =>
+                    setEditingProduct({
+                      ...editingProduct,
+                      metaDescription: e.target.value,
                     })
                   }
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg"
@@ -446,7 +752,7 @@ export function AdminDashboard() {
       {/* Add Product Modal */}
       {isAddingProduct && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto xl:p-8">
             <h2 className="text-xl mb-4">Add New Product</h2>
             {error && (
               <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
@@ -500,31 +806,143 @@ export function AdminDashboard() {
                 />
               </div>
               <div>
-                <label className="block text-sm mb-2">Price *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  value={newProduct.price || ""}
+                <label className="block text-sm mb-2">Category</label>
+                <select
+                  value={(newProduct.categoryId && typeof newProduct.categoryId !== "string") ? newProduct.categoryId._id : newProduct.categoryId || ""}
+                  onChange={(e) => {
+                    const selected = categories.find((cat) => cat._id === e.target.value);
+                    setNewProduct({
+                      ...newProduct,
+                      categoryId: selected || undefined,
+                    });
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                >
+                  <option value="">None</option>
+                  {categories.map((cat) => (
+                    <option key={cat._id} value={cat._id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm mb-2">Description</label>
+                <textarea
+                  value={newProduct.description || ""}
                   onChange={(e) =>
                     setNewProduct({
                       ...newProduct,
-                      price: parseFloat(e.target.value),
+                      description: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm mb-2">Price *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={newProduct.price || ""}
+                    onChange={(e) =>
+                      setNewProduct({
+                        ...newProduct,
+                        price: parseFloat(e.target.value),
+                      })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm mb-2">Compare Price</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={newProduct.comparePrice || 0}
+                    onChange={(e) =>
+                      setNewProduct({
+                        ...newProduct,
+                        comparePrice: parseFloat(e.target.value),
+                      })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm mb-2">Cost Price</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={newProduct.costPrice || 0}
+                    onChange={(e) =>
+                      setNewProduct({
+                        ...newProduct,
+                        costPrice: parseFloat(e.target.value),
+                      })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm mb-2">Stock Quantity *</label>
+                  <input
+                    type="number"
+                    required
+                    value={newProduct.stockQuantity || ""}
+                    onChange={(e) =>
+                      setNewProduct({
+                        ...newProduct,
+                        stockQuantity: parseInt(e.target.value),
+                      })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2 mb-4">
+                <input
+                  id="new-product-active-checkbox"
+                  type="checkbox"
+                  checked={newProduct.isActive ?? true}
+                  onChange={(e) =>
+                    setNewProduct({
+                      ...newProduct,
+                      isActive: e.target.checked,
+                    })
+                  }
+                  className="mr-2"
+                />
+                <label htmlFor="new-product-active-checkbox" className="text-sm">
+                  Active
+                </label>
+              </div>
+              <div>
+                <label className="block text-sm mb-2">Meta Title</label>
+                <input
+                  type="text"
+                  value={newProduct.metaTitle || ""}
+                  onChange={(e) =>
+                    setNewProduct({
+                      ...newProduct,
+                      metaTitle: e.target.value,
                     })
                   }
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
               <div>
-                <label className="block text-sm mb-2">Stock Quantity *</label>
-                <input
-                  type="number"
-                  required
-                  value={newProduct.stockQuantity || ""}
+                <label className="block text-sm mb-2">Meta Description</label>
+                <textarea
+                  value={newProduct.metaDescription || ""}
                   onChange={(e) =>
                     setNewProduct({
                       ...newProduct,
-                      stockQuantity: parseInt(e.target.value),
+                      metaDescription: e.target.value,
                     })
                   }
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg"
@@ -551,6 +969,235 @@ export function AdminDashboard() {
                   type="button"
                   onClick={() => {
                     setIsAddingProduct(false);
+                    setError(null);
+                  }}
+                  className="flex-1 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Category Modal */}
+      {editingCategory && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto xl:p-8">
+            <h2 className="text-xl mb-4">Edit Category</h2>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSaveCategory(editingCategory);
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-sm mb-2">Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editingCategory.name}
+                  onChange={(e) =>
+                    setEditingCategory({
+                      ...editingCategory,
+                      name: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-2">Slug *</label>
+                <input
+                  type="text"
+                  required
+                  value={editingCategory.slug}
+                  onChange={(e) =>
+                    setEditingCategory({
+                      ...editingCategory,
+                      slug: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-2">Description</label>
+                <textarea
+                  value={editingCategory.description || ""}
+                  onChange={(e) =>
+                    setEditingCategory({
+                      ...editingCategory,
+                      description: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-2">Parent Category</label>
+                <select
+                  value={editingCategory.parentCategoryId || ""}
+                  onChange={(e) =>
+                    setEditingCategory({
+                      ...editingCategory,
+                      parentCategoryId: e.target.value || null,
+                    })
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                >
+                  <option value="">None</option>
+                  {categories
+                    .filter((c) => c._id !== editingCategory._id)
+                    .map((categoryOption) => (
+                      <option key={categoryOption._id} value={categoryOption._id}>
+                        {categoryOption.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  id="category-active-checkbox"
+                  type="checkbox"
+                  checked={editingCategory.isActive ?? true}
+                  onChange={(e) =>
+                    setEditingCategory({
+                      ...editingCategory,
+                      isActive: e.target.checked,
+                    })
+                  }
+                  className="mr-2"
+                />
+                <label htmlFor="category-active-checkbox" className="text-sm">
+                  Active
+                </label>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  className="flex-1 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingCategory(null)}
+                  className="flex-1 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Category Modal */}
+      {isAddingCategory && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl mb-4">Add New Category</h2>
+            {error && (
+              <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
+            <form onSubmit={handleAddCategory} className="space-y-4">
+              <div>
+                <label className="block text-sm mb-2">Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={newCategory.name || ""}
+                  onChange={(e) =>
+                    setNewCategory({
+                      ...newCategory,
+                      name: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-2">Slug *</label>
+                <input
+                  type="text"
+                  required
+                  value={newCategory.slug || ""}
+                  onChange={(e) =>
+                    setNewCategory({
+                      ...newCategory,
+                      slug: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-2">Description</label>
+                <textarea
+                  value={newCategory.description || ""}
+                  onChange={(e) =>
+                    setNewCategory({
+                      ...newCategory,
+                      description: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-2">Parent Category</label>
+                <select
+                  value={newCategory.parentCategoryId || ""}
+                  onChange={(e) =>
+                    setNewCategory({
+                      ...newCategory,
+                      parentCategoryId: e.target.value || null,
+                    })
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                >
+                  <option value="">None</option>
+                  {categories.map((categoryOption) => (
+                    <option key={categoryOption._id} value={categoryOption._id}>
+                      {categoryOption.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  id="new-category-active-checkbox"
+                  type="checkbox"
+                  checked={newCategory.isActive ?? true}
+                  onChange={(e) =>
+                    setNewCategory({
+                      ...newCategory,
+                      isActive: e.target.checked,
+                    })
+                  }
+                  className="mr-2"
+                />
+                <label htmlFor="new-category-active-checkbox" className="text-sm">
+                  Active
+                </label>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="flex-1 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {isLoading ? "Adding..." : "Add Category"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddingCategory(false);
                     setError(null);
                   }}
                   className="flex-1 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"

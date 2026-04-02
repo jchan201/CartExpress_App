@@ -130,7 +130,9 @@ export function ProductComparison() {
               <td className="p-4 font-semibold bg-gray-50">Category</td>
               {comparisonList.map((product) => (
                 <td key={product.sku} className="p-4 text-center">
-                  {product.categoryId || "Uncategorized"}
+                  {typeof product.categoryId === "object"
+                    ? product.categoryId.name
+                    : product.categoryId || "Uncategorized"}
                 </td>
               ))}
             </tr>

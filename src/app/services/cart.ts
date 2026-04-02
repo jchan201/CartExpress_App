@@ -1,4 +1,4 @@
-import apiClient, { ApiResponse } from "./api";
+import apiClient, { ApiResponse, dedupedApi } from "./api";
 
 export interface CartItem {
   _id: string; // MongoDB document ID for backend sync
@@ -35,7 +35,7 @@ export const cartService = {
       if (userId) params.append("userId", userId);
       if (sessionId) params.append("sessionId", sessionId);
 
-      const response = await apiClient.get<ApiResponse<{ cart: Cart }>>(
+      const response = await dedupedApi.get<ApiResponse<{ cart: Cart }>>(
         "/cart",
         params.toString() ? { params: Object.fromEntries(params) } : undefined
       );
@@ -57,7 +57,7 @@ export const cartService = {
     variantId?: string
   ): Promise<{ cart: Cart; sessionId?: string }> => {
     try {
-      const response = await apiClient.post<ApiResponse<{ cart: Cart; sessionId?: string }>>(
+      const response = await dedupedApi.post<ApiResponse<{ cart: Cart; sessionId?: string }>>( 
         "/cart/items",
         {
           productId,
@@ -83,7 +83,7 @@ export const cartService = {
     itemId: string
   ): Promise<Cart> => {
     try {
-      const response = await apiClient.delete<ApiResponse<{ cart: Cart }>>(
+      const response = await dedupedApi.delete<ApiResponse<{ cart: Cart }>>( 
         `/cart/items/${itemId}`
       );
       return response.data.data.cart;
@@ -101,7 +101,7 @@ export const cartService = {
     quantity: number
   ): Promise<Cart> => {
     try {
-      const response = await apiClient.put<ApiResponse<{ cart: Cart }>>(
+      const response = await dedupedApi.put<ApiResponse<{ cart: Cart }>>( 
         `/cart/items/${itemId}`,
         { quantity }
       );
@@ -117,7 +117,7 @@ export const cartService = {
    */
   clearCart: async (): Promise<void> => {
     try {
-      await apiClient.delete("/cart");
+      await dedupedApi.delete("/cart");
     } catch (error) {
       console.error("Failed to clear cart:", error);
       throw error;

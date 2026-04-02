@@ -71,4 +71,63 @@ export interface ApiResponse<T = undefined> {
   sessionId?: string;
 }
 
+let inFlightRequestCount = 0;
+let busyListener: ((count: number) => void) | null = null;
+
+const notifyBusy = () => {
+  if (busyListener) {
+    busyListener(inFlightRequestCount);
+  }
+};
+
+export const registerApiBusyListener = (callback: (count: number) => void) => {
+  busyListener = callback;
+  callback(inFlightRequestCount);
+  return () => {
+    if (busyListener === callback) {
+      busyListener = null;
+    }
+  };
+};
+
+const pendingRequests = new Map<string, Promise<any>>();
+
+const getRequestKey = (config: import("axios").AxiosRequestConfig) => {
+  const { method, url, params, data } = config;
+  const normalizedData = typeof data === "string" ? data : JSON.stringify(data || {});
+  const normalizedParams = JSON.stringify(params || {});
+  return `${method ?? "get"}:${url}:${normalizedParams}:${normalizedData}`;
+};
+
+const requestWithDedup = async <T>(config: import("axios").AxiosRequestConfig) => {
+  const key = getRequestKey(config);
+
+  if (pendingRequests.has(key)) {
+    return pendingRequests.get(key) as Promise<import("axios").AxiosResponse<T>>;
+  }
+
+  inFlightRequestCount += 1;
+  notifyBusy();
+
+  const promise = apiClient.request<T>(config).finally(() => {
+    pendingRequests.delete(key);
+    inFlightRequestCount = Math.max(0, inFlightRequestCount - 1);
+    notifyBusy();
+  });
+
+  pendingRequests.set(key, promise);
+  return promise;
+};
+
+export const dedupedApi = {
+  get: <T = any>(url: string, config?: import("axios").AxiosRequestConfig) =>
+    requestWithDedup<T>({ ...config, url, method: "get" }),
+  post: <T = any>(url: string, data?: any, config?: import("axios").AxiosRequestConfig) =>
+    requestWithDedup<T>({ ...config, url, data, method: "post" }),
+  put: <T = any>(url: string, data?: any, config?: import("axios").AxiosRequestConfig) =>
+    requestWithDedup<T>({ ...config, url, data, method: "put" }),
+  delete: <T = any>(url: string, config?: import("axios").AxiosRequestConfig) =>
+    requestWithDedup<T>({ ...config, url, method: "delete" }),
+};
+
 export default apiClient;
